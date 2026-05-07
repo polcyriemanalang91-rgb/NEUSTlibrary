@@ -105,7 +105,7 @@ public class AdminDashboard extends JFrame {
         contentPanel.add(new ManageAuthorsPanel(currentAdmin),    "AUTHORS");
         contentPanel.add(new ManageCategoriesPanel(currentAdmin), "CATEGORIES");
         contentPanel.add(new ManagePublishersPanel(currentAdmin), "PUBLISHERS");
-        contentPanel.add(buildReportsPanel(),                     "REPORTS");
+        contentPanel.add(new ReportsPanel(currentAdmin), "REPORTS");
         contentPanel.add(buildSettingsPanel(),                    "SETTINGS");
 
         cardLayout.show(contentPanel, "DASHBOARD");
@@ -602,82 +602,6 @@ public class AdminDashboard extends JFrame {
         p.add(btnRow, BorderLayout.SOUTH);
         return p;
     }
-
-    // ── Reports Panel ─────────────────────────────────────────────────────────
-    private JPanel buildReportsPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 16));
-        p.setBackground(CLR_BG);
-        p.add(panelHeader("📊  Reports", "Generate and export system reports"), BorderLayout.NORTH);
-
-        JPanel cards = new JPanel(new GridLayout(2, 3, 14, 14));
-        cards.setOpaque(false);
-
-        String[][] reportTypes = {
-            {"📚", "Books Inventory",  "Full catalog listing with availability"},
-            {"📖", "Borrow History",   "All borrowing records and transactions"},
-            {"⚠",  "Overdue Report",   "Currently overdue books and fines"},
-            {"💰", "Fine Collection",  "Fines collected within a date range"},
-            {"👥", "Member Activity",  "Most active members and stats"},
-            {"📈", "Monthly Summary",  "Borrowing trends by month"}
-        };
-
-        for (String[] r : reportTypes) {
-            JPanel card = new JPanel(new BorderLayout(0, 8)) {
-                @Override protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(CLR_CARD);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                    g2.setColor(CLR_BORDER);
-                    g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 12, 12);
-                    g2.dispose();
-                }
-            };
-            card.setOpaque(false);
-            card.setBorder(new EmptyBorder(18, 18, 18, 18));
-            card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-            JLabel ico  = new JLabel(r[0]);
-            ico.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
-            JLabel lbl  = new JLabel(r[1]);
-            lbl.setFont(FONT_LABEL);
-            lbl.setForeground(CLR_TEXT);
-            JLabel desc = new JLabel(r[2]);
-            desc.setFont(FONT_SMALL);
-            desc.setForeground(CLR_MUTED);
-            JButton gen = accentButton("Generate", CLR_ACCENT2);
-            gen.setFont(FONT_SMALL);
-
-            JPanel top = new JPanel(new BorderLayout());
-            top.setOpaque(false);
-            top.add(ico, BorderLayout.WEST);
-            JPanel info = new JPanel();
-            info.setOpaque(false);
-            info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-            info.add(lbl); info.add(Box.createVerticalStrut(2)); info.add(desc);
-            top.add(info, BorderLayout.CENTER);
-
-            card.add(top, BorderLayout.NORTH);
-            card.add(gen, BorderLayout.SOUTH);
-
-            String rType = r[1];
-            gen.addActionListener(e ->
-                JOptionPane.showMessageDialog(this, "Generating: " + rType));
-            cards.add(card);
-        }
-        p.add(cards, BorderLayout.CENTER);
-
-        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
-        bottom.setOpaque(false);
-        JButton exportPDF = accentButton("⬇  Export PDF", CLR_ACCENT4);
-        JButton exportCSV = accentButton("⬇  Export CSV", CLR_ACCENT3);
-        exportPDF.addActionListener(e -> JOptionPane.showMessageDialog(this, "Export to PDF"));
-        exportCSV.addActionListener(e -> JOptionPane.showMessageDialog(this, "Export to CSV"));
-        bottom.add(exportPDF); bottom.add(exportCSV);
-        p.add(bottom, BorderLayout.SOUTH);
-        return p;
-    }
-
     // ── Settings Panel ────────────────────────────────────────────────────────
     private JPanel buildSettingsPanel() {
         JPanel outer = new JPanel(new BorderLayout(0, 16));
