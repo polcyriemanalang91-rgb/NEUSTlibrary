@@ -78,6 +78,21 @@ public class ReservationDAO {
         return list;
     }
 
+    // ── NEW METHOD ────────────────────────────────────────────────────────────
+    public int getActiveReservationCount(int memberID) {
+        String sql = "SELECT COUNT(*) FROM Reservation WHERE MemberID=? AND Status IN ('Pending','Confirmed')";
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, memberID);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error counting active reservations.", e);
+        }
+        return 0;
+    }
+
     private List<Reservation> getByStatus(String status) {
         List<Reservation> list = new ArrayList<>();
         String sql = "SELECT r.*, b.Title AS BookTitle, m.FirstName+' '+m.LastName AS MemberName, m.StudentID " +

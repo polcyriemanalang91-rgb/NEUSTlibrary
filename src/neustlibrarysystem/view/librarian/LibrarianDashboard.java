@@ -1,34 +1,68 @@
 package neustlibrarysystem.view.librarian;
 
+import neustlibrarysystem.dao.BookDAO;
+import neustlibrarysystem.dao.BorrowDAO;
+import neustlibrarysystem.dao.MemberDAO;
+import neustlibrarysystem.model.BorrowedRecord;
 import neustlibrarysystem.model.Librarian;
 import neustlibrarysystem.view.common.LoginFrame;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.RoundRectangle2D;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LibrarianDashboard extends JFrame {
 
-    public static final Color CLR_PRIMARY     = new Color(0x183b06);
-    public static final Color CLR_ACCENT      = new Color(0x9ab55d);
-    public static final Color CLR_BG          = new Color(0xeaf7d7);
-    public static final Color CLR_SIDEBAR     = new Color(0x1a1a2e);
-    public static final Color CLR_SIDEBAR_SEL = new Color(0x2a2a3e);
-    public static final Color CLR_SIDEBAR_HOV = new Color(0x25253a);
-    public static final Color CLR_WHITE       = Color.WHITE;
+    // ── Design Tokens (Admin Dashboard style) ─────────────────────────────────
+    public static final Color CLR_PRIMARY      = new Color(0x183b06);
+    public static final Color CLR_ACCENT       = new Color(0x4ade80);
+    public static final Color CLR_ACCENT2      = new Color(0x22d3ee);
+    public static final Color CLR_ACCENT3      = new Color(0xfbbf24);
+    public static final Color CLR_ACCENT4      = new Color(0xf87171);
+    public static final Color CLR_BG           = new Color(0x0d1b12);
+    public static final Color CLR_CARD         = new Color(0x132218);
+    public static final Color CLR_CARD2        = new Color(0x1a2e1f);
+    public static final Color CLR_SIDEBAR      = new Color(0x0a1a10);
+    public static final Color CLR_SIDEBAR_SEL  = new Color(0x1e3a26);
+    public static final Color CLR_SIDEBAR_HOV  = new Color(0x162b1c);
+    public static final Color CLR_TOP_BAR      = new Color(0x091510);
+    public static final Color CLR_TEXT         = new Color(0xe2f5e8);
+    public static final Color CLR_MUTED        = new Color(0x6b9e7a);
+    public static final Color CLR_BORDER       = new Color(0x1f3d28);
+    public static final Color CLR_WHITE        = Color.WHITE;
+
+    // Keep old names for compatibility with other panels
+    private static final Color CLR_DARK_BG     = CLR_BG;
+    private static final Color CLR_CARD_BG     = CLR_CARD;
+    private static final Color CLR_CARD_GREEN  = new Color(0x4ade80);
+    private static final Color CLR_CARD_CYAN   = new Color(0x22d3ee);
+    private static final Color CLR_CARD_YELLOW = new Color(0xfbbf24);
+    private static final Color CLR_CARD_RED    = new Color(0xf87171);
 
     public static final Font FONT_NAV    = new Font("Segoe UI", Font.BOLD,  13);
     public static final Font FONT_HEADER = new Font("Segoe UI", Font.BOLD,  18);
     public static final Font FONT_BODY   = new Font("Segoe UI", Font.PLAIN, 13);
     public static final Font FONT_LABEL  = new Font("Segoe UI", Font.BOLD,  12);
+    public static final Font FONT_SMALL  = new Font("Segoe UI", Font.PLAIN, 11);
+    private static final Font FONT_STAT  = new Font("Segoe UI", Font.BOLD,  36);
+    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD,  22);
 
-    private static final int SIDEBAR_EXPANDED  = 230;
-    private static final int SIDEBAR_COLLAPSED = 66;
+    private static final int SIDEBAR_EXPANDED  = 240;
+    private static final int SIDEBAR_COLLAPSED = 62;
 
-    private final Librarian librarian;
+    private final Librarian  librarian;
+    private final BookDAO    bookDAO   = new BookDAO();
+    private final BorrowDAO  borrowDAO = new BorrowDAO();
+    private final MemberDAO  memberDAO = new MemberDAO();
+
     private CardLayout cardLayout;
     private JPanel     contentPanel;
     private JPanel     sidebar;
@@ -41,14 +75,22 @@ public class LibrarianDashboard extends JFrame {
     private final List<NavEntry> navEntries = new ArrayList<>();
     private JButton activeNavBtn = null;
 
-    private ManageBooksPanel        booksPanel;
-    private ProcessBorrowPanel      borrowPanel;
-    private ProcessReturnPanel      returnPanel;
-    private ManageReservationsPanel reservationsPanel;
-    private ManageMembersPanel      membersPanel;
+    private JLabel statBooksVal, statMembersVal, statBorrowedVal, statOverdueVal;
+
+    private ManageBooksPanel           booksPanel;
+    private ProcessBorrowPanel         borrowPanel;
+    private ProcessReturnPanel         returnPanel;
+    private ManageReservationsPanel    reservationsPanel;
+    private ManageMembersPanel         membersPanel;
+    private AcceptBorrowRequestPanel   acceptRequestPanel;
 
     // ── Icon types ────────────────────────────────────────────────────────────
-    public enum IconType { BOOKS, BORROW, RETURN, RESERVATIONS, MEMBERS, LOGOUT, USER, TOGGLE_CLOSE, TOGGLE_OPEN }
+    public enum IconType {
+        BOOKS, BORROW, RETURN, RESERVATIONS, MEMBERS,
+        LOGOUT, USER, TOGGLE_CLOSE, TOGGLE_OPEN,
+        DASHBOARD, REFRESH, OVERDUE, ADD_USER, REPORTS, SETTINGS,
+        APPROVE
+    }
 
     // ── Custom vector icon factory ────────────────────────────────────────────
     public static Icon makeIcon(IconType type, Color color, int size) {
@@ -72,6 +114,13 @@ public class LibrarianDashboard extends JFrame {
                     case USER         -> drawUser(g2, s);
                     case TOGGLE_CLOSE -> drawToggleClose(g2, s);
                     case TOGGLE_OPEN  -> drawToggleOpen(g2, s);
+                    case DASHBOARD    -> drawDashboard(g2, s);
+                    case REFRESH      -> drawRefresh(g2, s);
+                    case OVERDUE      -> drawOverdue(g2, s);
+                    case ADD_USER     -> drawAddUser(g2, s);
+                    case REPORTS      -> drawReports(g2, s);
+                    case SETTINGS     -> drawSettings(g2, s);
+                    case APPROVE      -> drawApprove(g2, s);
                 }
                 g2.dispose();
             }
@@ -79,11 +128,10 @@ public class LibrarianDashboard extends JFrame {
     }
 
     private static int p(float v, float s) { return Math.round(v * s); }
-
     private static void drawBooks(Graphics2D g, float s) {
         g.fillRoundRect(p(2,s),p(14,s),p(7,s),p(4,s),p(1,s),p(1,s));
-        g.fillRoundRect(p(4,s),p(9,s), p(8,s),p(5,s),p(1,s),p(1,s));
-        g.fillRoundRect(p(6,s),p(4,s), p(10,s),p(5,s),p(1,s),p(1,s));
+        g.fillRoundRect(p(4,s),p(9,s),p(8,s),p(5,s),p(1,s),p(1,s));
+        g.fillRoundRect(p(6,s),p(4,s),p(10,s),p(5,s),p(1,s),p(1,s));
         Color c = g.getColor();
         g.setColor(new Color(c.getRed(),c.getGreen(),c.getBlue(),70));
         g.fillRect(p(4,s),p(14,s),p(1,s),p(4,s));
@@ -106,8 +154,7 @@ public class LibrarianDashboard extends JFrame {
     private static void drawReservations(Graphics2D g, float s) {
         g.fillRoundRect(p(5,s),p(2,s),p(10,s),p(16,s),p(2,s),p(2,s));
         Color c = g.getColor();
-        // Cutout notch at bottom
-        g.setColor(new Color(0x1a,0x1a,0x2e));
+        g.setColor(new Color(0x0a,0x1a,0x10));
         g.fillPolygon(new int[]{p(5,s),p(10,s),p(15,s)}, new int[]{p(18,s),p(13,s),p(18,s)}, 3);
         g.setColor(new Color(c.getRed(),c.getGreen(),c.getBlue(),80));
         g.drawLine(p(8,s),p(6,s),p(12,s),p(6,s));
@@ -141,6 +188,52 @@ public class LibrarianDashboard extends JFrame {
         g.drawLine(p(8,s),p(4,s),p(13,s),p(10,s)); g.drawLine(p(13,s),p(10,s),p(8,s),p(16,s));
         g.drawLine(p(4,s),p(4,s),p(9,s),p(10,s)); g.drawLine(p(9,s),p(10,s),p(4,s),p(16,s));
     }
+    private static void drawDashboard(Graphics2D g, float s) {
+        g.fillRoundRect(p(2,s),p(2,s),p(7,s),p(7,s),p(2,s),p(2,s));
+        g.fillRoundRect(p(11,s),p(2,s),p(7,s),p(7,s),p(2,s),p(2,s));
+        g.fillRoundRect(p(2,s),p(11,s),p(7,s),p(7,s),p(2,s),p(2,s));
+        g.fillRoundRect(p(11,s),p(11,s),p(7,s),p(7,s),p(2,s),p(2,s));
+    }
+    private static void drawRefresh(Graphics2D g, float s) {
+        g.drawArc(p(3,s),p(3,s),p(14,s),p(14,s),30,270);
+        g.fillPolygon(new int[]{p(14,s),p(18,s),p(16,s)}, new int[]{p(4,s),p(7,s),p(10,s)}, 3);
+    }
+    private static void drawOverdue(Graphics2D g, float s) {
+        g.fillPolygon(new int[]{p(10,s),p(2,s),p(18,s)}, new int[]{p(2,s),p(18,s),p(18,s)}, 3);
+        Color c = g.getColor();
+        g.setColor(new Color(0x0a,0x1a,0x10));
+        g.fillRect(p(9,s),p(8,s),p(2,s),p(5,s));
+        g.fillRect(p(9,s),p(14,s),p(2,s),p(2,s));
+        g.setColor(c);
+    }
+    private static void drawAddUser(Graphics2D g, float s) {
+        g.fillOval(p(4,s),p(2,s),p(8,s),p(8,s));
+        g.fillArc(p(0,s),p(11,s),p(14,s),p(8,s),0,180);
+        g.drawLine(p(15,s),p(6,s),p(15,s),p(14,s));
+        g.drawLine(p(11,s),p(10,s),p(19,s),p(10,s));
+    }
+    private static void drawReports(Graphics2D g, float s) {
+        g.drawRoundRect(p(3,s),p(2,s),p(14,s),p(16,s),p(2,s),p(2,s));
+        g.drawLine(p(6,s),p(7,s),p(14,s),p(7,s));
+        g.drawLine(p(6,s),p(10,s),p(14,s),p(10,s));
+        g.drawLine(p(6,s),p(13,s),p(11,s),p(13,s));
+    }
+    private static void drawSettings(Graphics2D g, float s) {
+        g.drawOval(p(7,s),p(7,s),p(6,s),p(6,s));
+        for (int i = 0; i < 8; i++) {
+            double a = Math.toRadians(i * 45);
+            int x1 = p(10,s) + (int)(Math.cos(a)*5*s);
+            int y1 = p(10,s) + (int)(Math.sin(a)*5*s);
+            int x2 = p(10,s) + (int)(Math.cos(a)*8*s);
+            int y2 = p(10,s) + (int)(Math.sin(a)*8*s);
+            g.drawLine(x1,y1,x2,y2);
+        }
+    }
+    private static void drawApprove(Graphics2D g, float s) {
+        g.drawOval(p(2,s), p(2,s), p(16,s), p(16,s));
+        g.drawLine(p(6,s), p(10,s), p(9,s),  p(13,s));
+        g.drawLine(p(9,s), p(13,s), p(14,s), p(7,s));
+    }
 
     // ── Nav entry ─────────────────────────────────────────────────────────────
     private static class NavEntry {
@@ -154,6 +247,7 @@ public class LibrarianDashboard extends JFrame {
         setTitle("NEUST Library — Librarian Portal");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1150, 720);
+        setMinimumSize(new Dimension(900, 600));
         setLocationRelativeTo(null);
         buildUI();
     }
@@ -167,176 +261,246 @@ public class LibrarianDashboard extends JFrame {
         cardLayout   = new CardLayout();
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(CLR_BG);
-        contentPanel.setBorder(new EmptyBorder(20,20,20,20));
+        contentPanel.setBorder(new EmptyBorder(24, 28, 24, 28));
 
-        JPanel loadingPanel = new JPanel(new BorderLayout());
-        loadingPanel.setBackground(CLR_BG);
-        JLabel loadingLbl = new JLabel("Loading...", SwingConstants.CENTER);
-        loadingLbl.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-        loadingLbl.setForeground(CLR_ACCENT);
-        loadingPanel.add(loadingLbl, BorderLayout.CENTER);
-        contentPanel.add(loadingPanel, "loading");
+        contentPanel.add(buildDashboardPanel(), "dashboard");
 
         root.add(contentPanel, BorderLayout.CENTER);
         setContentPane(root);
-        cardLayout.show(contentPanel, "loading");
+
+        cardLayout.show(contentPanel, "dashboard");
+        SwingUtilities.invokeLater(this::refreshDashboardStats);
         loadPanelAsync("books");
     }
 
-    // ── Sidebar ───────────────────────────────────────────────────────────────
+    // ── Sidebar (Admin style) ─────────────────────────────────────────────────
     private JPanel buildSidebar() {
         sidebar = new JPanel(new BorderLayout());
         sidebar.setBackground(CLR_SIDEBAR);
         sidebar.setPreferredSize(new Dimension(SIDEBAR_EXPANDED, 0));
+        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, CLR_BORDER));
 
-        // Top: logo + toggle
-        JPanel topArea = new JPanel(new BorderLayout());
-        topArea.setBackground(new Color(0x12122a));
-        topArea.setBorder(new EmptyBorder(20,0,16,0));
+        // ── Logo area with gradient ───────────────────────────────────────────
+        JPanel logoArea = new GradientPanel(CLR_SIDEBAR, new Color(0x0f2018));
+        logoArea.setLayout(new BoxLayout(logoArea, BoxLayout.Y_AXIS));
+        logoArea.setBorder(new EmptyBorder(24, 0, 20, 0));
 
-        JPanel logoPanel = new JPanel();
-        logoPanel.setBackground(new Color(0x12122a));
-        logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
-        JLabel logoIcon = new JLabel(makeIcon(IconType.BOOKS, CLR_ACCENT, 36));
+        JLabel logoIcon = new JLabel(makeIcon(IconType.BOOKS, CLR_ACCENT, 32));
         logoIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel sysName = new JLabel("NEUST Library");
-        sysName.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        sysName.setForeground(Color.WHITE);
-        sysName.setAlignmentX(Component.CENTER_ALIGNMENT);
-        JLabel roleLabel = new JLabel("Librarian Portal");
-        roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        roleLabel.setForeground(CLR_ACCENT);
-        roleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        logoPanel.add(logoIcon);
-        logoPanel.add(Box.createVerticalStrut(6));
-        logoPanel.add(sysName);
-        logoPanel.add(Box.createVerticalStrut(2));
-        logoPanel.add(roleLabel);
-        topArea.add(logoPanel, BorderLayout.CENTER);
 
-        toggleBtn = new JButton(makeIcon(IconType.TOGGLE_CLOSE, CLR_ACCENT, 20));
-        toggleBtn.setBackground(new Color(0x12122a));
+        JLabel sysName = new JLabel("NEUST Library");
+        sysName.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        sysName.setForeground(CLR_TEXT);
+        sysName.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // Role tag (Admin style pill)
+        JLabel roleTag = new JLabel("Librarian Portal") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CLR_ACCENT);
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        roleTag.setFont(new Font("Segoe UI", Font.BOLD, 9));
+        roleTag.setForeground(CLR_ACCENT);
+        roleTag.setHorizontalAlignment(SwingConstants.CENTER);
+        roleTag.setBorder(new EmptyBorder(3, 10, 3, 10));
+        roleTag.setAlignmentX(Component.CENTER_ALIGNMENT);
+        roleTag.setMaximumSize(new Dimension(130, 22));
+
+        toggleBtn = new JButton("◀");
+        toggleBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        toggleBtn.setForeground(CLR_MUTED);
+        toggleBtn.setBackground(CLR_SIDEBAR);
         toggleBtn.setBorderPainted(false);
         toggleBtn.setFocusPainted(false);
         toggleBtn.setContentAreaFilled(false);
         toggleBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        toggleBtn.setPreferredSize(new Dimension(38,38));
-        toggleBtn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { toggleBtn.setContentAreaFilled(true); toggleBtn.setBackground(new Color(0x22224a)); }
-            public void mouseExited (MouseEvent e) { toggleBtn.setContentAreaFilled(false); }
-        });
+        toggleBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         toggleBtn.addActionListener(e -> toggleSidebar());
-        topArea.add(toggleBtn, BorderLayout.EAST);
-        sidebar.add(topArea, BorderLayout.NORTH);
+        toggleBtn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { toggleBtn.setForeground(CLR_ACCENT); }
+            public void mouseExited(MouseEvent e)  { toggleBtn.setForeground(CLR_MUTED); }
+        });
 
-        // Nav buttons
+        logoArea.add(Box.createVerticalStrut(4));
+        logoArea.add(logoIcon);
+        logoArea.add(Box.createVerticalStrut(8));
+        logoArea.add(sysName);
+        logoArea.add(Box.createVerticalStrut(4));
+        logoArea.add(roleTag);
+        logoArea.add(Box.createVerticalStrut(12));
+        logoArea.add(toggleBtn);
+        sidebar.add(logoArea, BorderLayout.NORTH);
+
+        // ── Nav container ─────────────────────────────────────────────────────
         navContainer = new JPanel();
         navContainer.setBackground(CLR_SIDEBAR);
         navContainer.setLayout(new BoxLayout(navContainer, BoxLayout.Y_AXIS));
-        navContainer.setBorder(new EmptyBorder(20,0,16,0));
-        addNavBtn(IconType.BOOKS,        "Manage Books",   "books");
-        addNavBtn(IconType.BORROW,       "Process Borrow", "borrow");
-        addNavBtn(IconType.RETURN,       "Process Return", "return");
-        addNavBtn(IconType.RESERVATIONS, "Reservations",   "reservations");
-        addNavBtn(IconType.MEMBERS,      "Members",        "members");
-        sidebar.add(navContainer, BorderLayout.CENTER);
+        navContainer.setBorder(new EmptyBorder(10, 0, 10, 0));
 
-        // Bottom: user + logout
+        addSectionLabel("MAIN");
+        addNavBtn(IconType.DASHBOARD,    "Dashboard",       "dashboard");
+        addSectionLabel("LIBRARY");
+        addNavBtn(IconType.APPROVE,      "Accept Requests", "accept-requests");
+        addNavBtn(IconType.BOOKS,        "Manage Books",    "books");
+        addNavBtn(IconType.BORROW,       "Process Borrow",  "borrow");
+        addNavBtn(IconType.RETURN,       "Process Return",  "return");
+        addNavBtn(IconType.RESERVATIONS, "Reservations",    "reservations");
+        addSectionLabel("ACCOUNT");
+        addNavBtn(IconType.MEMBERS,      "Members",         "members");
+
+        JScrollPane navScroll = new JScrollPane(navContainer);
+        navScroll.setBorder(null);
+        navScroll.setBackground(CLR_SIDEBAR);
+        navScroll.getViewport().setBackground(CLR_SIDEBAR);
+        navScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        navScroll.getVerticalScrollBar().setPreferredSize(new Dimension(4, 0));
+        sidebar.add(navScroll, BorderLayout.CENTER);
+
+        // ── Bottom area ───────────────────────────────────────────────────────
         JPanel bottomArea = new JPanel();
-        bottomArea.setBackground(CLR_SIDEBAR);
+        bottomArea.setBackground(new Color(0x091410));
         bottomArea.setLayout(new BoxLayout(bottomArea, BoxLayout.Y_AXIS));
-        bottomArea.setBorder(new EmptyBorder(0,0,12,0));
+        bottomArea.setBorder(new EmptyBorder(10, 0, 10, 0));
+
         JSeparator sep = new JSeparator();
-        sep.setForeground(new Color(0x2e2e4a));
-        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE,1));
+        sep.setForeground(CLR_BORDER);
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         bottomArea.add(sep);
         bottomArea.add(Box.createVerticalStrut(10));
 
         JButton userRow = new JButton();
         userRow.setIcon(makeIcon(IconType.USER, CLR_ACCENT, 18));
         userRow.setText("  " + librarian.getFullName());
-        userRow.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        userRow.setForeground(new Color(0xccccee));
-        userRow.setBackground(CLR_SIDEBAR);
+        userRow.setFont(FONT_BODY);
+        userRow.setForeground(CLR_MUTED);
+        userRow.setBackground(new Color(0, 0, 0, 0));
         userRow.setBorderPainted(false); userRow.setFocusPainted(false); userRow.setContentAreaFilled(false);
         userRow.setHorizontalAlignment(SwingConstants.LEFT);
-        userRow.setMaximumSize(new Dimension(Integer.MAX_VALUE,36));
+        userRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         userRow.setAlignmentX(Component.CENTER_ALIGNMENT);
-        userRow.setBorder(new EmptyBorder(4,20,4,20));
+        userRow.setBorder(new EmptyBorder(8, 20, 8, 20));
         userRow.setName("userRow"); userRow.setIconTextGap(6);
         bottomArea.add(userRow);
         bottomArea.add(Box.createVerticalStrut(4));
 
         JButton logoutBtn = new JButton();
-        logoutBtn.setIcon(makeIcon(IconType.LOGOUT, new Color(0xFF8A80), 18));
+        logoutBtn.setIcon(makeIcon(IconType.LOGOUT, CLR_ACCENT4, 18));
         logoutBtn.setText("  Logout");
-        logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        logoutBtn.setForeground(new Color(0xFF8A80));
-        logoutBtn.setBackground(new Color(0x22223a));
-        logoutBtn.setBorderPainted(false); logoutBtn.setFocusPainted(false);
+        logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        logoutBtn.setForeground(CLR_ACCENT4);
+        logoutBtn.setBackground(new Color(0, 0, 0, 0));
+        logoutBtn.setBorderPainted(false); logoutBtn.setFocusPainted(false); logoutBtn.setContentAreaFilled(false);
         logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoutBtn.setHorizontalAlignment(SwingConstants.LEFT);
-        logoutBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE,40));
+        logoutBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        logoutBtn.setBorder(new EmptyBorder(8,20,8,20));
+        logoutBtn.setBorder(new EmptyBorder(8, 20, 8, 20));
         logoutBtn.setName("logoutBtn"); logoutBtn.setIconTextGap(6);
         logoutBtn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { logoutBtn.setBackground(new Color(0x4a1010)); }
-            public void mouseExited (MouseEvent e) { logoutBtn.setBackground(new Color(0x22223a)); }
+            public void mouseEntered(MouseEvent e) { logoutBtn.setBackground(new Color(0x3a0f0f)); logoutBtn.setContentAreaFilled(true); }
+            public void mouseExited (MouseEvent e) { logoutBtn.setContentAreaFilled(false); }
         });
         logoutBtn.addActionListener(e -> logout());
         bottomArea.add(logoutBtn);
+        bottomArea.add(Box.createVerticalStrut(4));
         sidebar.add(bottomArea, BorderLayout.SOUTH);
         return sidebar;
     }
 
-    // ── Nav button factory ────────────────────────────────────────────────────
+    private void addSectionLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 9));
+        lbl.setForeground(new Color(0x3a6045));
+        lbl.setBorder(new EmptyBorder(14, 20, 4, 20));
+        lbl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lbl.setName("sectionLabel");
+        navContainer.add(lbl);
+    }
+
     private void addNavBtn(IconType iconType, String text, String card) {
-        Color iconNormal = new Color(0xaaaacc);
-        JButton btn = new JButton();
-        btn.setIcon(makeIcon(iconType, iconNormal, 20));
+        JButton btn = new JButton() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getBackground() != CLR_SIDEBAR && isContentAreaFilled()) {
+                    g2.setColor(getBackground());
+                    g2.fillRoundRect(6, 2, getWidth()-12, getHeight()-4, 10, 10);
+                }
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        btn.setOpaque(false);
+        btn.setIcon(makeIcon(iconType, CLR_MUTED, 20));
         btn.setText("  " + text);
         btn.setFont(FONT_NAV);
-        btn.setForeground(new Color(0xccccee));
+        btn.setForeground(CLR_MUTED);
         btn.setBackground(CLR_SIDEBAR);
         btn.setBorderPainted(false); btn.setContentAreaFilled(false); btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setBorder(new EmptyBorder(10,20,10,20));
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE,50));
+        btn.setBorder(new EmptyBorder(10, 20, 10, 20));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setIconTextGap(10);
+        btn.setName("nav");
 
         navEntries.add(new NavEntry(btn, iconType, text, card));
 
         btn.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) {
-                if (btn!=activeNavBtn) { btn.setContentAreaFilled(true); btn.setBackground(CLR_SIDEBAR_HOV); }
+                if (btn != activeNavBtn) {
+                    btn.setContentAreaFilled(true);
+                    btn.setBackground(CLR_SIDEBAR_HOV);
+                    btn.setForeground(CLR_TEXT);
+                    btn.setIcon(makeIcon(iconType, CLR_TEXT, 20));
+                }
             }
             public void mouseExited(MouseEvent e) {
-                if (btn!=activeNavBtn) { btn.setContentAreaFilled(false); btn.setBackground(CLR_SIDEBAR); }
+                if (btn != activeNavBtn) {
+                    btn.setContentAreaFilled(false);
+                    btn.setBackground(CLR_SIDEBAR);
+                    btn.setForeground(CLR_MUTED);
+                    btn.setIcon(makeIcon(iconType, CLR_MUTED, 20));
+                }
             }
         });
+
         btn.addActionListener(e -> {
             if (activeNavBtn != null) {
-                NavEntry prev = navEntries.stream().filter(ne->ne.btn==activeNavBtn).findFirst().orElse(null);
-                if (prev!=null) activeNavBtn.setIcon(makeIcon(prev.iconType, iconNormal, 20));
+                NavEntry prev = navEntries.stream().filter(ne -> ne.btn == activeNavBtn).findFirst().orElse(null);
+                if (prev != null) activeNavBtn.setIcon(makeIcon(prev.iconType, CLR_MUTED, 20));
                 activeNavBtn.setContentAreaFilled(false);
                 activeNavBtn.setBackground(CLR_SIDEBAR);
-                activeNavBtn.setForeground(new Color(0xccccee));
+                activeNavBtn.setForeground(CLR_MUTED);
             }
             btn.setIcon(makeIcon(iconType, CLR_ACCENT, 20));
             btn.setContentAreaFilled(true);
             btn.setBackground(CLR_SIDEBAR_SEL);
             btn.setForeground(CLR_ACCENT);
             activeNavBtn = btn;
+
+            if ("dashboard".equals(card)) {
+                cardLayout.show(contentPanel, "dashboard");
+                refreshDashboardStats();
+                return;
+            }
             if (!isPanelLoaded(card)) {
                 loadPanelAsync(card);
             } else {
                 cardLayout.show(contentPanel, card);
-                if ("reservations".equals(card) && reservationsPanel!=null) reservationsPanel.refresh();
-                if ("members".equals(card)      && membersPanel!=null)      membersPanel.refresh();
-                if ("return".equals(card)       && returnPanel!=null)       returnPanel.refresh();
+                if ("reservations".equals(card)    && reservationsPanel  != null) reservationsPanel.refresh();
+                if ("members".equals(card)         && membersPanel       != null) membersPanel.refresh();
+                if ("return".equals(card)          && returnPanel        != null) returnPanel.refresh();
+                if ("accept-requests".equals(card) && acceptRequestPanel != null) acceptRequestPanel.refresh();
             }
         });
         navContainer.add(btn);
@@ -347,36 +511,40 @@ public class LibrarianDashboard extends JFrame {
     private void toggleSidebar() {
         sidebarExpanded    = !sidebarExpanded;
         sidebarTargetWidth = sidebarExpanded ? SIDEBAR_EXPANDED : SIDEBAR_COLLAPSED;
-        toggleBtn.setIcon(makeIcon(sidebarExpanded ? IconType.TOGGLE_CLOSE : IconType.TOGGLE_OPEN, CLR_ACCENT, 20));
+        toggleBtn.setText(sidebarExpanded ? "◀" : "▶");
+
         for (NavEntry ne : navEntries) {
             ne.btn.setText(sidebarExpanded ? "  " + ne.text : "");
             ne.btn.setHorizontalAlignment(sidebarExpanded ? SwingConstants.LEFT : SwingConstants.CENTER);
-            ne.btn.setBorder(new EmptyBorder(10, sidebarExpanded?20:0, 10, sidebarExpanded?20:0));
+            ne.btn.setBorder(new EmptyBorder(10, sidebarExpanded ? 20 : 0, 10, sidebarExpanded ? 20 : 0));
         }
-        // Update bottom buttons
+        for (Component c : navContainer.getComponents()) {
+            if (c instanceof JLabel lbl && "sectionLabel".equals(lbl.getName()))
+                lbl.setVisible(sidebarExpanded);
+        }
         JPanel bottomArea = (JPanel) sidebar.getComponent(2);
         for (Component c : bottomArea.getComponents()) {
             if (!(c instanceof JButton jb)) continue;
             if ("userRow".equals(jb.getName())) {
                 jb.setText(sidebarExpanded ? "  " + librarian.getFullName() : "");
                 jb.setHorizontalAlignment(sidebarExpanded ? SwingConstants.LEFT : SwingConstants.CENTER);
-                jb.setBorder(new EmptyBorder(4, sidebarExpanded?20:0, 4, sidebarExpanded?20:0));
+                jb.setBorder(new EmptyBorder(8, sidebarExpanded ? 20 : 0, 8, sidebarExpanded ? 20 : 0));
             }
             if ("logoutBtn".equals(jb.getName())) {
                 jb.setText(sidebarExpanded ? "  Logout" : "");
                 jb.setHorizontalAlignment(sidebarExpanded ? SwingConstants.LEFT : SwingConstants.CENTER);
-                jb.setBorder(new EmptyBorder(8, sidebarExpanded?20:0, 8, sidebarExpanded?20:0));
+                jb.setBorder(new EmptyBorder(8, sidebarExpanded ? 20 : 0, 8, sidebarExpanded ? 20 : 0));
             }
         }
-        if (sidebarTimer!=null && sidebarTimer.isRunning()) sidebarTimer.stop();
-        sidebarTimer = new Timer(12, null);
+        if (sidebarTimer != null && sidebarTimer.isRunning()) sidebarTimer.stop();
+        sidebarTimer = new Timer(10, null);
         sidebarTimer.addActionListener(e -> {
-            int w = sidebar.getPreferredSize().width;
-            int step = (sidebarTargetWidth>w) ? 14 : -14;
+            int w    = sidebar.getPreferredSize().width;
+            int step = (sidebarTargetWidth > w) ? 16 : -16;
             w += step;
-            boolean done = step>0 ? w>=sidebarTargetWidth : w<=sidebarTargetWidth;
-            if (done) { w=sidebarTargetWidth; sidebarTimer.stop(); }
-            sidebar.setPreferredSize(new Dimension(w,0));
+            boolean done = step > 0 ? w >= sidebarTargetWidth : w <= sidebarTargetWidth;
+            if (done) { w = sidebarTargetWidth; sidebarTimer.stop(); }
+            sidebar.setPreferredSize(new Dimension(w, 0));
             sidebar.revalidate();
             getContentPane().revalidate();
             getContentPane().repaint();
@@ -384,26 +552,251 @@ public class LibrarianDashboard extends JFrame {
         sidebarTimer.start();
     }
 
+    private void navigateTo(String card) {
+        for (NavEntry ne : navEntries) {
+            if (ne.card.equals(card)) {
+                ne.btn.doClick();
+                break;
+            }
+        }
+    }
+
+    // ── Top bar ───────────────────────────────────────────────────────────────
+    private JPanel buildTopBar() {
+        JPanel bar = new GradientPanel(CLR_TOP_BAR, new Color(0x0a1a10));
+        bar.setLayout(new BorderLayout());
+        bar.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, CLR_BORDER),
+            new EmptyBorder(14, 24, 14, 24)
+        ));
+
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        left.setOpaque(false);
+        JLabel title = new JLabel("Library Management System");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        title.setForeground(CLR_TEXT);
+        JLabel sub = new JLabel("  —  Librarian Portal");
+        sub.setFont(FONT_BODY);
+        sub.setForeground(CLR_MUTED);
+        left.add(title);
+        left.add(sub);
+
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        rightPanel.setOpaque(false);
+        String today = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy"));
+        JLabel dateLabel = new JLabel(today);
+        dateLabel.setFont(FONT_SMALL);
+        dateLabel.setForeground(CLR_MUTED);
+        JLabel libLabel = new JLabel("● " + librarian.getFullName());
+        libLabel.setFont(FONT_LABEL);
+        libLabel.setForeground(CLR_ACCENT);
+        rightPanel.add(dateLabel);
+        rightPanel.add(libLabel);
+
+        bar.add(left,       BorderLayout.WEST);
+        bar.add(rightPanel, BorderLayout.EAST);
+        return bar;
+    }
+
+    // ── Dashboard Panel ───────────────────────────────────────────────────────
+    private JPanel buildDashboardPanel() {
+        JPanel panel = new JPanel(new BorderLayout(0, 24));
+        panel.setBackground(CLR_BG);
+
+        // Header
+        JPanel headerRow = new JPanel(new BorderLayout());
+        headerRow.setOpaque(false);
+        JPanel headerText = new JPanel();
+        headerText.setOpaque(false);
+        headerText.setLayout(new BoxLayout(headerText, BoxLayout.Y_AXIS));
+        JLabel h = new JLabel("Dashboard Overview");
+        h.setFont(FONT_TITLE);
+        h.setForeground(CLR_TEXT);
+        JLabel sub = new JLabel("Welcome back, " + librarian.getFullName() + "!");
+        sub.setFont(FONT_SMALL);
+        sub.setForeground(CLR_MUTED);
+        headerText.add(h);
+        headerText.add(Box.createVerticalStrut(2));
+        headerText.add(sub);
+        headerRow.add(headerText, BorderLayout.WEST);
+
+        JButton refreshBtn = makeAccentButton("↺  Refresh", CLR_ACCENT2);
+        refreshBtn.addActionListener(e -> refreshDashboardStats());
+        headerRow.add(refreshBtn, BorderLayout.EAST);
+        panel.add(headerRow, BorderLayout.NORTH);
+
+        // Stat cards
+        JPanel cardsRow = new JPanel(new GridLayout(1, 4, 16, 0));
+        cardsRow.setOpaque(false);
+        statBooksVal    = new JLabel("—", SwingConstants.CENTER);
+        statMembersVal  = new JLabel("—", SwingConstants.CENTER);
+        statBorrowedVal = new JLabel("—", SwingConstants.CENTER);
+        statOverdueVal  = new JLabel("—", SwingConstants.CENTER);
+        cardsRow.add(buildStatCard("Total Books",        "All catalog titles",  statBooksVal,    CLR_CARD_GREEN,  IconType.BOOKS));
+        cardsRow.add(buildStatCard("Active Members",     "Registered users",    statMembersVal,  CLR_CARD_CYAN,   IconType.MEMBERS));
+        cardsRow.add(buildStatCard("Currently Borrowed", "Books on loan",       statBorrowedVal, CLR_CARD_YELLOW, IconType.BORROW));
+        cardsRow.add(buildStatCard("Overdue",            "Past return date",    statOverdueVal,  CLR_CARD_RED,    IconType.OVERDUE));
+
+        // Quick actions
+        JPanel qa = new JPanel(new BorderLayout(0, 12));
+        qa.setOpaque(false);
+        JLabel qaLabel = new JLabel("Quick Actions");
+        qaLabel.setFont(FONT_HEADER);
+        qaLabel.setForeground(CLR_TEXT);
+        qa.add(qaLabel, BorderLayout.NORTH);
+
+        JPanel qaGrid = new JPanel(new GridLayout(2, 3, 12, 12));
+        qaGrid.setOpaque(false);
+        qaGrid.add(buildQuickActionCard("Accept Requests",  "Approve or reject member borrow requests", IconType.APPROVE,      "accept-requests"));
+        qaGrid.add(buildQuickActionCard("Process Borrow",   "Check out books to members",               IconType.BORROW,       "borrow"));
+        qaGrid.add(buildQuickActionCard("Process Return",   "Return and process fines",                 IconType.RETURN,       "return"));
+        qaGrid.add(buildQuickActionCard("Reservations",     "Manage pending reservations",              IconType.RESERVATIONS, "reservations"));
+        qaGrid.add(buildQuickActionCard("Manage Books",     "Add, edit, or remove books",               IconType.BOOKS,        "books"));
+        qaGrid.add(buildQuickActionCard("Manage Members",   "View and manage member records",           IconType.MEMBERS,      "members"));
+        qa.add(qaGrid, BorderLayout.CENTER);
+
+        JPanel center = new JPanel(new BorderLayout(0, 20));
+        center.setOpaque(false);
+        center.add(cardsRow, BorderLayout.NORTH);
+        center.add(qa,       BorderLayout.CENTER);
+        panel.add(center, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel buildStatCard(String title, String subtitle, JLabel valueLabel,
+                                 Color accentColor, IconType iconType) {
+        JPanel card = new JPanel(new BorderLayout(0, 8)) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CLR_CARD);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setColor(accentColor);
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.08f));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+                g2.setColor(accentColor);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(1, 1, getWidth()-2, getHeight()-2, 14, 14);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(new EmptyBorder(20, 20, 20, 20));
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        JLabel iconLbl = new JLabel(makeIcon(iconType, accentColor, 26));
+        JLabel subLbl  = new JLabel(subtitle);
+        subLbl.setFont(FONT_SMALL);
+        subLbl.setForeground(CLR_MUTED);
+        top.add(iconLbl, BorderLayout.WEST);
+        top.add(subLbl,  BorderLayout.EAST);
+
+        valueLabel.setFont(FONT_STAT);
+        valueLabel.setForeground(CLR_TEXT);
+
+        JLabel titleLbl = new JLabel(title);
+        titleLbl.setFont(FONT_LABEL);
+        titleLbl.setForeground(CLR_MUTED);
+
+        card.add(top,        BorderLayout.NORTH);
+        card.add(valueLabel, BorderLayout.CENTER);
+        card.add(titleLbl,   BorderLayout.SOUTH);
+        return card;
+    }
+
+    private JPanel buildQuickActionCard(String title, String desc, IconType icon, String card) {
+        JPanel p = new JPanel(new BorderLayout(0, 8)) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.dispose();
+            }
+        };
+        p.setOpaque(false);
+        p.setBackground(CLR_CARD2);
+        p.setBorder(new EmptyBorder(20, 20, 20, 20));
+        p.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        JLabel iconLbl  = new JLabel(makeIcon(icon, CLR_ACCENT, 26));
+        JLabel titleLbl = new JLabel(title);
+        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        titleLbl.setForeground(CLR_TEXT);
+        JLabel descLbl = new JLabel(desc);
+        descLbl.setFont(FONT_SMALL);
+        descLbl.setForeground(CLR_MUTED);
+
+        JPanel text = new JPanel();
+        text.setOpaque(false);
+        text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+        text.add(titleLbl);
+        text.add(descLbl);
+
+        p.add(iconLbl, BorderLayout.NORTH);
+        p.add(text,    BorderLayout.CENTER);
+
+        p.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { p.setBackground(CLR_ACCENT); repaintCard(); }
+            public void mouseExited (MouseEvent e) { p.setBackground(CLR_CARD2);  repaintCard(); }
+            public void mouseClicked(MouseEvent e) { navigateTo(card); }
+            void repaintCard() { p.repaint(); }
+        });
+        return p;
+    }
+
+    private void refreshDashboardStats() {
+        new SwingWorker<int[], Void>() {
+            @Override protected int[] doInBackground() {
+                int books=0, members=0, borrowed=0, overdue=0;
+                try { books   = bookDAO.getTotalBookCount();      } catch (Exception ignored) {}
+                try { members = memberDAO.getActiveMemberCount(); } catch (Exception ignored) {}
+                try {
+                    List<BorrowedRecord> list = borrowDAO.getActiveBorrows();
+                    LocalDate today = LocalDate.now();
+                    for (BorrowedRecord r : list) {
+                        borrowed++;
+                        if (r.getDueDate() != null && r.getDueDate().toLocalDate().isBefore(today)) overdue++;
+                    }
+                } catch (Exception ignored) {}
+                return new int[]{ books, members, borrowed, overdue };
+            }
+            @Override protected void done() {
+                try {
+                    int[] v = get();
+                    statBooksVal   .setText(String.valueOf(v[0]));
+                    statMembersVal .setText(String.valueOf(v[1]));
+                    statBorrowedVal.setText(String.valueOf(v[2]));
+                    statOverdueVal .setText(String.valueOf(v[3]));
+                } catch (Exception ignored) {}
+            }
+        }.execute();
+    }
+
     // ── Lazy loader ───────────────────────────────────────────────────────────
     private void loadPanelAsync(String card) {
-        new SwingWorker<Void,Void>() {
+        new SwingWorker<Void, Void>() {
             protected Void doInBackground() {
                 switch (card) {
-                    case "books"        -> { if (booksPanel==null)        booksPanel        = new ManageBooksPanel(librarian); }
-                    case "borrow"       -> { if (borrowPanel==null)       borrowPanel       = new ProcessBorrowPanel(librarian); }
-                    case "return"       -> { if (returnPanel==null)       returnPanel       = new ProcessReturnPanel(librarian); }
-                    case "reservations" -> { if (reservationsPanel==null) reservationsPanel = new ManageReservationsPanel(librarian); }
-                    case "members"      -> { if (membersPanel==null)      membersPanel      = new ManageMembersPanel(); }
+                    case "books"           -> { if (booksPanel==null)         booksPanel         = new ManageBooksPanel(librarian); }
+                    case "borrow"          -> { if (borrowPanel==null)        borrowPanel        = new ProcessBorrowPanel(librarian); }
+                    case "return"          -> { if (returnPanel==null)        returnPanel        = new ProcessReturnPanel(librarian); }
+                    case "reservations"    -> { if (reservationsPanel==null)  reservationsPanel  = new ManageReservationsPanel(librarian); }
+                    case "members"         -> { if (membersPanel==null)       membersPanel       = new ManageMembersPanel(); }
+                    case "accept-requests" -> { if (acceptRequestPanel==null) acceptRequestPanel = new AcceptBorrowRequestPanel(librarian); }
                 }
                 return null;
             }
             protected void done() {
                 switch (card) {
-                    case "books"        -> contentPanel.add(booksPanel,        "books");
-                    case "borrow"       -> contentPanel.add(borrowPanel,       "borrow");
-                    case "return"       -> contentPanel.add(returnPanel,       "return");
-                    case "reservations" -> contentPanel.add(reservationsPanel, "reservations");
-                    case "members"      -> contentPanel.add(membersPanel,      "members");
+                    case "books"           -> contentPanel.add(booksPanel,         "books");
+                    case "borrow"          -> contentPanel.add(borrowPanel,        "borrow");
+                    case "return"          -> contentPanel.add(returnPanel,        "return");
+                    case "reservations"    -> contentPanel.add(reservationsPanel,  "reservations");
+                    case "members"         -> contentPanel.add(membersPanel,       "members");
+                    case "accept-requests" -> contentPanel.add(acceptRequestPanel, "accept-requests");
                 }
                 cardLayout.show(contentPanel, card);
                 contentPanel.revalidate(); contentPanel.repaint();
@@ -413,59 +806,166 @@ public class LibrarianDashboard extends JFrame {
 
     private boolean isPanelLoaded(String card) {
         return switch (card) {
-            case "books"        -> booksPanel        != null;
-            case "borrow"       -> borrowPanel       != null;
-            case "return"       -> returnPanel       != null;
-            case "reservations" -> reservationsPanel != null;
-            case "members"      -> membersPanel      != null;
-            default             -> false;
+            case "books"           -> booksPanel         != null;
+            case "borrow"          -> borrowPanel        != null;
+            case "return"          -> returnPanel        != null;
+            case "reservations"    -> reservationsPanel  != null;
+            case "members"         -> membersPanel       != null;
+            case "accept-requests" -> acceptRequestPanel != null;
+            default                -> false;
         };
-    }
-
-    // ── Top bar ───────────────────────────────────────────────────────────────
-    private JPanel buildTopBar() {
-        JPanel bar = new JPanel(new BorderLayout());
-        bar.setBackground(new Color(0x12122a));
-        bar.setBorder(new EmptyBorder(12,24,12,24));
-        JLabel title = new JLabel("Library Management System — Librarian Portal");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        title.setForeground(Color.WHITE);
-        JLabel dateLabel = new JLabel(
-            java.time.LocalDate.now().format(
-                java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy")));
-        dateLabel.setFont(FONT_BODY);
-        dateLabel.setForeground(CLR_ACCENT);
-        bar.add(title,     BorderLayout.WEST);
-        bar.add(dateLabel, BorderLayout.EAST);
-        return bar;
     }
 
     private void logout() {
         int c = JOptionPane.showConfirmDialog(this, "Logout from the system?", "Confirm Logout", JOptionPane.YES_NO_OPTION);
-        if (c==JOptionPane.YES_OPTION) { new LoginFrame().setVisible(true); dispose(); }
+        if (c == JOptionPane.YES_OPTION) { new LoginFrame().setVisible(true); dispose(); }
     }
 
+    // ── Shared static helpers ─────────────────────────────────────────────────
+
+    /**
+     * Applies the standard dark-green theme to a JTable (rows, fonts, selection).
+     * NOTE: This does NOT lock the header renderer — call applyHeaderRenderer()
+     * immediately after if you need a custom header color (e.g. white text).
+     */
     public static void styleTable(JTable table) {
-        table.setFont(FONT_BODY); table.setRowHeight(30);
-        table.setSelectionBackground(new Color(0x9ab55d)); table.setSelectionForeground(Color.WHITE);
-        table.setGridColor(new Color(0xc5e0a0)); table.setShowVerticalLines(false); table.setBackground(Color.WHITE);
-        javax.swing.table.JTableHeader h = table.getTableHeader();
-        h.setFont(FONT_LABEL); h.setBackground(new Color(0x1a1a2e)); h.setForeground(Color.WHITE);
-        h.setReorderingAllowed(false); h.setPreferredSize(new Dimension(0,36));
+        table.setFont(FONT_BODY);
+        table.setForeground(CLR_TEXT);
+        table.setBackground(CLR_CARD);
+        table.setRowHeight(34);
+        table.setSelectionBackground(new Color(0x1e4a2a));
+        table.setSelectionForeground(CLR_ACCENT);
+        table.setGridColor(CLR_BORDER);
+        table.setShowVerticalLines(false);
+        table.setIntercellSpacing(new Dimension(0, 1));
+
+        JTableHeader h = table.getTableHeader();
+        h.setFont(FONT_LABEL);
+        h.setBackground(new Color(0x0a1a10));
+        h.setForeground(CLR_ACCENT);
+        h.setReorderingAllowed(false);
+        h.setPreferredSize(new Dimension(0, 40));
+        h.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, CLR_ACCENT));
+
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override public Component getTableCellRendererComponent(
+                    JTable t, Object val, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                setFont(FONT_BODY);
+                setBorder(new EmptyBorder(0, 10, 0, 10));
+                if (sel) {
+                    setBackground(new Color(0x1e4a2a));
+                    setForeground(CLR_ACCENT);
+                } else {
+                    setBackground(row % 2 == 0 ? CLR_CARD : CLR_CARD2);
+                    setForeground(CLR_TEXT);
+                    if (val instanceof String s) {
+                        if (s.equals("Active")   || s.equals("ACCEPTED")) setForeground(CLR_ACCENT);
+                        else if (s.equals("Inactive") || s.equals("REJECTED")) setForeground(CLR_ACCENT4);
+                        else if (s.equals("PENDING"))  setForeground(CLR_ACCENT3);
+                    }
+                }
+                return this;
+            }
+        });
     }
+
+    /**
+     * Applies a fully custom header renderer to a table's header.
+     * Call this AFTER styleTable() to override the L&F header colors.
+     *
+     * @param table      the JTable whose header needs custom styling
+     * @param bgColor    background color for header cells
+     * @param fgColor    foreground (text) color for header cells
+     * @param font       font for header cell text
+     */
+    public static void applyHeaderRenderer(JTable table, Color bgColor, Color fgColor, Font font) {
+        table.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(
+                    JTable t, Object val, boolean sel, boolean focus, int row, int col) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(
+                        t, val, sel, focus, row, col);
+                lbl.setBackground(bgColor);
+                lbl.setForeground(fgColor);
+                lbl.setFont(font);
+                lbl.setOpaque(true);
+                lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                lbl.setBorder(new EmptyBorder(0, 10, 0, 10));
+                return lbl;
+            }
+        });
+        table.getTableHeader().setBackground(bgColor);
+        table.getTableHeader().setForeground(fgColor);
+    }
+
+    public static JScrollPane styledScrollPane(JTable table) {
+        JScrollPane sp = new JScrollPane(table) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CLR_CARD);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        sp.setOpaque(false);
+        sp.getViewport().setOpaque(false);
+        sp.getViewport().setBackground(CLR_CARD);
+        sp.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
+        sp.getVerticalScrollBar().setBackground(CLR_CARD);
+        return sp;
+    }
+
+    public static JButton makeAccentButton(String text, Color accent) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        btn.setOpaque(false);
+        btn.setFont(FONT_BODY);
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(accent);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setContentAreaFilled(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(9, 18, 9, 18));
+        Color darker = accent.darker();
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(darker); }
+            public void mouseExited (MouseEvent e) { btn.setBackground(accent); }
+        });
+        return btn;
+    }
+
     public static JButton primaryBtn(String text) {
-        JButton b = new JButton(text); b.setFont(FONT_BODY); b.setBackground(new Color(0x183b06));
-        b.setForeground(Color.WHITE); b.setFocusPainted(false); b.setBorderPainted(false);
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR)); b.setBorder(new EmptyBorder(8,18,8,18)); return b;
+        return makeAccentButton(text, new Color(0x1e4a2a));
     }
     public static JButton accentBtn(String text) {
-        JButton b = new JButton(text); b.setFont(FONT_BODY); b.setBackground(new Color(0x9ab55d));
-        b.setForeground(Color.WHITE); b.setFocusPainted(false); b.setBorderPainted(false);
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR)); b.setBorder(new EmptyBorder(8,18,8,18)); return b;
+        return makeAccentButton(text, CLR_ACCENT);
     }
     public static JButton dangerBtn(String text) {
-        JButton b = new JButton(text); b.setFont(FONT_BODY); b.setBackground(new Color(0xC0392B));
-        b.setForeground(Color.WHITE); b.setFocusPainted(false); b.setBorderPainted(false);
-        b.setCursor(new Cursor(Cursor.HAND_CURSOR)); b.setBorder(new EmptyBorder(8,18,8,18)); return b;
+        return makeAccentButton(text, CLR_ACCENT4);
+    }
+
+    // ── Gradient Panel (Admin style) ──────────────────────────────────────────
+    private static class GradientPanel extends JPanel {
+        private final Color c1, c2;
+        GradientPanel(Color c1, Color c2) { this.c1=c1; this.c2=c2; setOpaque(false); }
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setPaint(new GradientPaint(0, 0, c1, getWidth(), getHeight(), c2));
+            g2.fillRect(0, 0, getWidth(), getHeight());
+            g2.dispose();
+            super.paintComponent(g);
+        }
     }
 }

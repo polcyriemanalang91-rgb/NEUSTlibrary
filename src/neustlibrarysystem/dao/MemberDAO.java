@@ -215,6 +215,19 @@ public class MemberDAO {
         return list;
     }
 
+    // ── ADDED: Count all active members for dashboard ─────────────────────────
+    public int getActiveMemberCount() {
+        String sql = "SELECT COUNT(*) FROM Member WHERE IsActive = 1";
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error counting members.", e);
+        }
+        return 0;
+    }
+
     // ── MAPPING ───────────────────────────────────────────────────────────────
     private Member mapMember(ResultSet rs) throws SQLException {
         Member m = new Member();
@@ -229,9 +242,9 @@ public class MemberDAO {
         m.setContactNumber(rs.getString ("ContactNumber"));
         m.setAddress      (rs.getString ("Address"));
         m.setActive       (rs.getBoolean("IsActive"));
-        Timestamp ca = rs.getTimestamp("CreatedAt"); // ← FIXED
+        Timestamp ca = rs.getTimestamp("CreatedAt");
         if (ca != null) m.setCreatedAt(ca.toLocalDateTime());
-        Timestamp ua = rs.getTimestamp("UpdatedAt"); // ← FIXED
+        Timestamp ua = rs.getTimestamp("UpdatedAt");
         if (ua != null) m.setUpdatedAt(ua.toLocalDateTime());
         return m;
     }

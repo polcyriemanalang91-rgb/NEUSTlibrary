@@ -2,8 +2,10 @@ package neustlibrarysystem.dao;
 
 import neustlibrarysystem.db.DatabaseConnection;
 import neustlibrarysystem.model.BorrowedRecord;
+import neustlibrarysystem.model.BorrowRequest;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -100,6 +102,128 @@ public class BorrowDAO {
             ps.setInt(1, borrowID);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
+    }
+
+    // ── BORROW REQUEST METHODS ────────────────────────────────────────────────
+
+    /**
+     * Returns all borrow requests with member and book info joined.
+     * Adjust table/column names to match your actual DB schema.
+     */
+    public List<BorrowRequest> getAllBorrowRequests() {
+        List<BorrowRequest> list = new ArrayList<>();
+        String sql = "SELECT br.RequestID, br.MemberID, "
+                   + "m.FirstName + ' ' + m.LastName AS MemberName, "
+                   + "br.BookID, b.Title AS BookTitle, b.ISBN, "
+                   + "br.RequestDate, br.PreferredPickup, "
+                   + "br.Status, br.Notes, "
+                   + "br.ProcessedBy, br.ProcessedDate, br.DueDate "
+                   + "FROM BorrowRequest br "
+                   + "JOIN Member m ON br.MemberID = m.MemberID "
+                   + "JOIN Book   b ON br.BookID   = b.BookID "
+                   + "ORDER BY br.RequestDate DESC";
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                BorrowRequest req = new BorrowRequest();
+                req.setRequestId (rs.getInt   ("RequestID"));
+                req.setMemberId  (rs.getInt   ("MemberID"));
+                req.setMemberName(rs.getString("MemberName"));
+                req.setBookId    (rs.getInt   ("BookID"));
+                req.setBookTitle (rs.getString("BookTitle"));
+                req.setIsbn      (rs.getString("ISBN"));
+                req.setStatus    (rs.getString("Status"));
+                req.setNotes     (rs.getString("Notes"));
+
+                Date reqDate = rs.getDate("RequestDate");
+                if (reqDate != null) req.setRequestDate(reqDate.toLocalDate());
+
+                Date pickup = rs.getDate("PreferredPickup");
+                if (pickup != null) req.setPreferredPickup(pickup.toLocalDate());
+
+                Date procDate = rs.getDate("ProcessedDate");
+                if (procDate != null) req.setProcessedDate(procDate.toLocalDate());
+
+                Date due = rs.getDate("DueDate");
+                if (due != null) req.setDueDate(due.toLocalDate());
+
+                int procBy = rs.getInt("ProcessedBy");
+                if (!rs.wasNull()) req.setProcessedByLibrarianId(procBy);
+
+                list.add(req);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+
+    /**
+     * Accepts a borrow request:
+     * 1. Updates BorrowRequest status to ACCEPTED
+     * 2. Creates a BorrowedRecord entry
+     * 3. Decrements available copies of the book
+     * All inside a transaction.
+     */
+    public void acceptBorrowRequest(int requestId, int librarianId, LocalDate dueDate) {
+        String updateRequest = "UPDATE BorrowRequest "
+                + "SET Status = 'ACCEPTED', ProcessedBy = ?, "
+                + "ProcessedDate = GETDATE(), DueDate = ? "
+                + "WHERE RequestID = ?";
+
+        // Insert actual borrow record — adjust column names to match BorrowedRecord table
+        String insertBorrow = "INSERT INTO BorrowedRecord "
+                + "(MemberID, BookID, LibrarianID, BorrowDate, DueDate, Status, FineAmount, FinePaid) "
+                + "SELECT MemberID, BookID, ?, GETDATE(), ?, 'Borrowed', 0, 0 "
+                + "FROM BorrowRequest WHERE RequestID = ?";
+
+        // Decrement available copies
+        String decrementBook = "UPDATE Book "
+                + "SET AvailableCopies = AvailableCopies - 1 "
+                + "WHERE BookID = (SELECT BookID FROM BorrowRequest WHERE RequestID = ?) "
+                + "AND AvailableCopies > 0";
+
+        try (Connection con = DatabaseConnection.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = con.prepareStatement(updateRequest)) {
+                    ps.setInt (1, librarianId);
+                    ps.setDate(2, Date.valueOf(dueDate));
+                    ps.setInt (3, requestId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = con.prepareStatement(insertBorrow)) {
+                    ps.setInt (1, librarianId);
+                    ps.setDate(2, Date.valueOf(dueDate));
+                    ps.setInt (3, requestId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = con.prepareStatement(decrementBook)) {
+                    ps.setInt(1, requestId);
+                    ps.executeUpdate();
+                }
+                con.commit();
+            } catch (SQLException e) {
+                con.rollback();
+                e.printStackTrace();
+            } finally {
+                con.setAutoCommit(true);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
+    /**
+     * Rejects a borrow request — simply updates status to REJECTED.
+     */
+    public void rejectBorrowRequest(int requestId, int librarianId) {
+        String sql = "UPDATE BorrowRequest "
+                + "SET Status = 'REJECTED', ProcessedBy = ?, ProcessedDate = GETDATE() "
+                + "WHERE RequestID = ?";
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, librarianId);
+            ps.setInt(2, requestId);
+            ps.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
     }
 
     // ── REPORT METHODS ────────────────────────────────────────────────────────

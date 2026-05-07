@@ -172,6 +172,18 @@ public class BookDAO {
         return list;
     }
 
+    public int getTotalBookCount() {
+        String sql = "SELECT COUNT(*) FROM Book WHERE IsActive = 1";
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error counting books.", e);
+        }
+        return 0;
+    }
+
     // ── MAPPING ───────────────────────────────────────────────────────────────
 
     private Book mapBookFromViewRS(ResultSet rs) throws SQLException {
@@ -188,7 +200,11 @@ public class BookDAO {
         book.setCategoryName   (rs.getString ("CategoryName"));
         book.setPublisherName  (rs.getString ("PublisherName"));
 
-        // ← FIXED: removed setAuthorName(), properly add authors to list
+        // ── FIX: Load the actual IDs so Edit dialog pre-fills correctly ──────
+        book.setCategoryID (rs.getInt("CategoryID"));   // ← WAS MISSING
+        book.setPublisherID(rs.getInt("PublisherID"));  // ← WAS MISSING
+        // ─────────────────────────────────────────────────────────────────────
+
         String authorsStr = rs.getString("Authors");
         if (authorsStr != null && !authorsStr.isEmpty()) {
             List<Author> authors = new ArrayList<>();
@@ -197,7 +213,7 @@ public class BookDAO {
                 Author a = new Author();
                 a.setFirstName(parts.length > 0 ? parts[0] : "");
                 a.setLastName (parts.length > 1 ? parts[1] : "");
-                authors.add(a); // ← FIXED: was missing add()
+                authors.add(a);
             }
             book.setAuthors(authors);
         }

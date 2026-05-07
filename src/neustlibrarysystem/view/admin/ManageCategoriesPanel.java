@@ -5,104 +5,278 @@ import neustlibrarysystem.model.Admin;
 import neustlibrarysystem.model.Category;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.List;
 
 public class ManageCategoriesPanel extends JPanel {
 
-    private final Admin currentAdmin;
-    private JTable categoryTable;
+    // ── Design Tokens (matches AdminDashboard) ────────────────────────────────
+    private static final Color CLR_BG      = new Color(0x0d1b12);
+    private static final Color CLR_CARD    = new Color(0x132218);
+    private static final Color CLR_CARD2   = new Color(0x1a2e1f);
+    private static final Color CLR_ACCENT  = new Color(0x4ade80);
+    private static final Color CLR_ACCENT4 = new Color(0xf87171);
+    private static final Color CLR_TEXT    = new Color(0xe2f5e8);
+    private static final Color CLR_MUTED   = new Color(0x6b9e7a);
+    private static final Color CLR_BORDER  = new Color(0x1f3d28);
+    private static final Color CLR_HDR_BG  = new Color(0x0a1a10);
+
+    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD,  22);
+    private static final Font FONT_LABEL = new Font("Segoe UI", Font.BOLD,  12);
+    private static final Font FONT_BODY  = new Font("Segoe UI", Font.PLAIN, 13);
+    private static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 11);
+
+    private final Admin       currentAdmin;
+    private final CategoryDAO categoryDAO;
+
+    private JTable            categoryTable;
     private DefaultTableModel tableModel;
+
     private JTextField txtName, txtDescription;
-    private JCheckBox chkActive;
-    private JButton btnAdd, btnUpdate, btnDelete, btnClear;
-    private CategoryDAO categoryDAO;
+    private JCheckBox  chkActive;
+    private JButton    btnAdd, btnUpdate, btnDelete, btnClear;
+
     private int selectedCategoryID = -1;
 
+    // ── Constructor ───────────────────────────────────────────────────────────
     public ManageCategoriesPanel(Admin currentAdmin) {
         this.currentAdmin = currentAdmin;
-        this.categoryDAO = new CategoryDAO();
-        initComponents();
+        this.categoryDAO  = new CategoryDAO();
+        setLayout(new BorderLayout(0, 16));
+        setBackground(CLR_BG);
+        setBorder(new EmptyBorder(0, 0, 0, 0));
+        buildUI();
         loadCategories();
     }
 
-    private void initComponents() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+    // ── UI Builder ────────────────────────────────────────────────────────────
+    private void buildUI() {
+        add(buildHeader(), BorderLayout.NORTH);
+        add(buildTable(),  BorderLayout.CENTER);
+        add(buildForm(),   BorderLayout.SOUTH);
+    }
 
-        JLabel title = new JLabel("Manage Categories");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        title.setForeground(new Color(0x1B4F72));
-        add(title, BorderLayout.NORTH);
+    // ── Header ────────────────────────────────────────────────────────────────
+    private JPanel buildHeader() {
+        JPanel hdr = new JPanel();
+        hdr.setOpaque(false);
+        hdr.setLayout(new BoxLayout(hdr, BoxLayout.Y_AXIS));
 
+        JLabel title = new JLabel("🏷  Manage Categories");
+        title.setFont(FONT_TITLE);
+        title.setForeground(CLR_TEXT);
+
+        JLabel sub = new JLabel("Add, update, or deactivate book categories");
+        sub.setFont(FONT_SMALL);
+        sub.setForeground(CLR_MUTED);
+
+        hdr.add(title);
+        hdr.add(Box.createVerticalStrut(3));
+        hdr.add(sub);
+        hdr.add(Box.createVerticalStrut(6));
+
+        JSeparator sep = new JSeparator();
+        sep.setForeground(CLR_BORDER);
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        hdr.add(sep);
+        return hdr;
+    }
+
+    // ── Table ─────────────────────────────────────────────────────────────────
+    private JScrollPane buildTable() {
         String[] cols = {"Category ID", "Category Name", "Description", "Active", "Created At"};
         tableModel = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
+
         categoryTable = new JTable(tableModel);
-        categoryTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        categoryTable.setRowHeight(26);
-        categoryTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        categoryTable.setFont(FONT_BODY);
+        categoryTable.setForeground(CLR_TEXT);
+        categoryTable.setBackground(CLR_CARD);
+        categoryTable.setRowHeight(34);
+        categoryTable.setSelectionBackground(new Color(0x1e4a2a));
+        categoryTable.setSelectionForeground(CLR_ACCENT);
+        categoryTable.setGridColor(CLR_BORDER);
+        categoryTable.setShowVerticalLines(false);
+        categoryTable.setIntercellSpacing(new Dimension(0, 1));
         categoryTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        // ── Header renderer ───────────────────────────────────────────────────
+        JTableHeader header = categoryTable.getTableHeader();
+        header.setPreferredSize(new Dimension(0, 40));
+        header.setReorderingAllowed(false);
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, CLR_ACCENT));
+        header.setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(
+                    JTable t, Object val, boolean sel, boolean foc, int row, int col) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                lbl.setBackground(CLR_HDR_BG);
+                lbl.setForeground(CLR_ACCENT);
+                lbl.setFont(FONT_LABEL);
+                lbl.setOpaque(true);
+                lbl.setBorder(new EmptyBorder(0, 10, 0, 10));
+                return lbl;
+            }
+        });
+
+        // ── Row renderer ──────────────────────────────────────────────────────
+        categoryTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(
+                    JTable t, Object val, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                setFont(FONT_BODY);
+                setBorder(new EmptyBorder(0, 10, 0, 10));
+                if (sel) {
+                    setBackground(new Color(0x1e4a2a));
+                    setForeground(CLR_ACCENT);
+                } else {
+                    setBackground(row % 2 == 0 ? CLR_CARD : CLR_CARD2);
+                    setForeground(CLR_TEXT);
+                    if (val instanceof String s) {
+                        if (s.equals("Yes"))     setForeground(CLR_ACCENT);
+                        else if (s.equals("No")) setForeground(CLR_ACCENT4);
+                    }
+                }
+                return this;
+            }
+        });
+
         categoryTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) populateForm();
         });
-        add(new JScrollPane(categoryTable), BorderLayout.CENTER);
 
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder("Category Details"));
+        JScrollPane scroll = new JScrollPane(categoryTable);
+        scroll.setOpaque(false);
+        scroll.getViewport().setBackground(CLR_CARD);
+        scroll.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
+        scroll.getVerticalScrollBar().setBackground(CLR_CARD);
+        return scroll;
+    }
+
+    // ── Form ──────────────────────────────────────────────────────────────────
+    private JPanel buildForm() {
+        JPanel wrapper = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(CLR_CARD);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setColor(CLR_BORDER);
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 14, 14);
+                g2.dispose();
+            }
+        };
+        wrapper.setOpaque(false);
+        wrapper.setBorder(new EmptyBorder(16, 20, 16, 20));
+
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setOpaque(false);
+
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(7, 8, 7, 8);
         gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.fill   = GridBagConstraints.HORIZONTAL;
 
-        txtName        = new JTextField(20);
-        txtDescription = new JTextField(30);
+        txtName        = darkField(20);
+        txtDescription = darkField(30);
         chkActive      = new JCheckBox("Active", true);
+        chkActive.setFont(FONT_BODY);
+        chkActive.setForeground(CLR_TEXT);
+        chkActive.setOpaque(false);
 
-        String[] labels = {"Category Name: *", "Description:"};
-        JTextField[] fields = {txtName, txtDescription};
-        for (int i = 0; i < labels.length; i++) {
+        Object[][] rows = {
+            {"Category Name:", txtName},
+            {"Description:",   txtDescription},
+            {"",               chkActive}
+        };
+
+        for (int i = 0; i < rows.length; i++) {
             gbc.gridx = 0; gbc.gridy = i; gbc.weightx = 0;
-            JLabel lbl = new JLabel(labels[i]);
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            formPanel.add(lbl, gbc);
+            if (!((String) rows[i][0]).isEmpty()) {
+                JLabel lbl = new JLabel((String) rows[i][0]);
+                lbl.setFont(FONT_LABEL);
+                lbl.setForeground(CLR_MUTED);
+                form.add(lbl, gbc);
+            }
             gbc.gridx = 1; gbc.weightx = 1;
-            fields[i].setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            formPanel.add(fields[i], gbc);
+            form.add((Component) rows[i][1], gbc);
         }
-        gbc.gridx = 1; gbc.gridy = 2;
-        formPanel.add(chkActive, gbc);
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 5));
-        btnAdd    = createBtn("Add",    new Color(0x117A65), Color.WHITE);
-        btnUpdate = createBtn("Update", new Color(0x1B4F72), Color.WHITE);
-        btnDelete = createBtn("Delete", new Color(0xC0392B), Color.WHITE);
-        btnClear  = createBtn("Clear",  Color.LIGHT_GRAY, Color.DARK_GRAY);
-        btnAdd.addActionListener(e -> addCategory());
+        // ── Buttons ───────────────────────────────────────────────────────────
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btnPanel.setOpaque(false);
+
+        btnAdd    = accentBtn("➕  Add",        new Color(0x1e4a2a));
+        btnUpdate = accentBtn("✏  Update",      new Color(0x1a3a5c));
+        btnDelete = accentBtn("🚫  Deactivate", new Color(0x5c1a1a));
+        btnClear  = accentBtn("↺  Clear",       new Color(0x2a2a2a));
+
+        btnAdd   .addActionListener(e -> addCategory());
         btnUpdate.addActionListener(e -> updateCategory());
         btnDelete.addActionListener(e -> deleteCategory());
-        btnClear.addActionListener(e -> clearForm());
-        btnPanel.add(btnAdd); btnPanel.add(btnUpdate);
-        btnPanel.add(btnDelete); btnPanel.add(btnClear);
+        btnClear .addActionListener(e -> clearForm());
 
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
-        formPanel.add(btnPanel, gbc);
+        btnPanel.add(btnAdd);
+        btnPanel.add(btnUpdate);
+        btnPanel.add(btnDelete);
+        btnPanel.add(btnClear);
 
-        add(formPanel, BorderLayout.SOUTH);
+        gbc.gridx = 0; gbc.gridy = rows.length; gbc.gridwidth = 2;
+        form.add(btnPanel, gbc);
+
+        wrapper.add(form, BorderLayout.CENTER);
+        return wrapper;
     }
 
-    private JButton createBtn(String text, Color bg, Color fg) {
-        JButton btn = new JButton(text);
-        btn.setBackground(bg); btn.setForeground(fg);
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private JTextField darkField(int cols) {
+        JTextField tf = new JTextField(cols);
+        tf.setFont(FONT_BODY);
+        tf.setForeground(CLR_TEXT);
+        tf.setBackground(CLR_CARD2);
+        tf.setCaretColor(CLR_ACCENT);
+        tf.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_BORDER, 1, true),
+            new EmptyBorder(6, 10, 6, 10)
+        ));
+        return tf;
+    }
+
+    private JButton accentBtn(String text, Color bg) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        btn.setOpaque(false);
+        btn.setFont(FONT_BODY);
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(bg);
+        btn.setBorderPainted(false);
         btn.setFocusPainted(false);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setContentAreaFilled(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(8, 16, 8, 16));
+        Color darker = bg.darker();
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) { btn.setBackground(darker); }
+            public void mouseExited (java.awt.event.MouseEvent e) { btn.setBackground(bg); }
+        });
         return btn;
     }
 
-    // Helper — i-disable lahat ng buttons habang nag-proprocess
     private void setButtonsEnabled(boolean enabled) {
         btnAdd.setEnabled(enabled);
         btnUpdate.setEnabled(enabled);
@@ -110,99 +284,63 @@ public class ManageCategoriesPanel extends JPanel {
         btnClear.setEnabled(enabled);
     }
 
-    // ─── SwingWorker: loadCategories ─────────────────────────────────────────────
+    // ── Data Logic ────────────────────────────────────────────────────────────
     private void loadCategories() {
         setButtonsEnabled(false);
-
-        SwingWorker<List<Category>, Void> worker = new SwingWorker<>() {
-            @Override
-            protected List<Category> doInBackground() throws SQLException {
-                // Nasa background thread — ligtas mag-query ng DB dito
+        new SwingWorker<List<Category>, Void>() {
+            @Override protected List<Category> doInBackground() throws SQLException {
                 return categoryDAO.getAllCategories();
             }
-
-            @Override
-            protected void done() {
-                // Balik sa EDT para i-update ang table
+            @Override protected void done() {
                 try {
-                    List<Category> list = get();
                     tableModel.setRowCount(0);
-                    for (Category c : list) {
+                    for (Category c : get()) {
                         tableModel.addRow(new Object[]{
-                                c.getCategoryID(), c.getCategoryName(), c.getDescription(),
-                                c.isActive() ? "Yes" : "No",
-                                c.getCreatedAt() != null ? c.getCreatedAt().toLocalDate() : ""
+                            c.getCategoryID(), c.getCategoryName(), c.getDescription(),
+                            c.isActive() ? "Yes" : "No",
+                            c.getCreatedAt() != null ? c.getCreatedAt().toLocalDate() : ""
                         });
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageCategoriesPanel.this,
-                            "Error loading categories: " + ex.getMessage(),
-                            "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                        "Error loading categories: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
-    // ─── SwingWorker: addCategory ────────────────────────────────────────────────
     private void addCategory() {
         String name = txtName.getText().trim();
         if (name.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Category name is required.", "Validation", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        // I-capture ang values bago pumasok sa background thread
         String description = txtDescription.getText().trim();
-
         setButtonsEnabled(false);
-
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Boolean doInBackground() throws SQLException {
-                // I-check ang duplicate at i-add — parehong nasa background
-                if (categoryDAO.categoryNameExists(name, -1)) return null; // null = duplicate
-                Category c = new Category(name, description);
-                return categoryDAO.addCategory(c);
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() throws SQLException {
+                if (categoryDAO.categoryNameExists(name, -1)) return null;
+                return categoryDAO.addCategory(new Category(name, description));
             }
-
-            @Override
-            protected void done() {
+            @Override protected void done() {
                 try {
                     Boolean result = get();
                     if (result == null) {
-                        JOptionPane.showMessageDialog(
-                                ManageCategoriesPanel.this,
-                                "Category name already exists.", "Duplicate", JOptionPane.WARNING_MESSAGE
-                        );
+                        JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                            "Category name already exists.", "Duplicate", JOptionPane.WARNING_MESSAGE);
                     } else if (result) {
-                        JOptionPane.showMessageDialog(
-                                ManageCategoriesPanel.this,
-                                "Category added!", "Success", JOptionPane.INFORMATION_MESSAGE
-                        );
-                        loadCategories();
-                        clearForm();
+                        JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                            "Category added!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadCategories(); clearForm();
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageCategoriesPanel.this,
-                            "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
-    // ─── SwingWorker: updateCategory ─────────────────────────────────────────────
     private void updateCategory() {
         if (selectedCategoryID < 0) {
             JOptionPane.showMessageDialog(this, "Select a category first.", "Warning", JOptionPane.WARNING_MESSAGE);
@@ -213,49 +351,32 @@ public class ManageCategoriesPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Category name is required.", "Validation", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        // I-capture ang values bago pumasok sa background thread
         String  description = txtDescription.getText().trim();
         boolean active      = chkActive.isSelected();
         int     idToUpdate  = selectedCategoryID;
-
         setButtonsEnabled(false);
-
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Boolean doInBackground() throws SQLException {
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() throws SQLException {
                 Category c = new Category(name, description);
                 c.setCategoryID(idToUpdate);
                 c.setActive(active);
                 return categoryDAO.updateCategory(c);
             }
-
-            @Override
-            protected void done() {
+            @Override protected void done() {
                 try {
                     if (get()) {
-                        JOptionPane.showMessageDialog(
-                                ManageCategoriesPanel.this,
-                                "Category updated!", "Success", JOptionPane.INFORMATION_MESSAGE
-                        );
-                        loadCategories();
-                        clearForm();
+                        JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                            "Category updated!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadCategories(); clearForm();
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageCategoriesPanel.this,
-                            "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
-    // ─── SwingWorker: deleteCategory ─────────────────────────────────────────────
     private void deleteCategory() {
         if (selectedCategoryID < 0) {
             JOptionPane.showMessageDialog(this, "Select a category first.", "Warning", JOptionPane.WARNING_MESSAGE);
@@ -263,46 +384,32 @@ public class ManageCategoriesPanel extends JPanel {
         }
         if (JOptionPane.showConfirmDialog(this, "Deactivate this category?", "Confirm",
                 JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
-
         int idToDelete = selectedCategoryID;
         setButtonsEnabled(false);
-
-        SwingWorker<Void, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Void doInBackground() throws SQLException {
+        new SwingWorker<Void, Void>() {
+            @Override protected Void doInBackground() throws SQLException {
                 categoryDAO.deleteCategory(idToDelete);
                 return null;
             }
-
-            @Override
-            protected void done() {
+            @Override protected void done() {
                 try {
                     get();
-                    JOptionPane.showMessageDialog(
-                            ManageCategoriesPanel.this,
-                            "Category deactivated.", "Success", JOptionPane.INFORMATION_MESSAGE
-                    );
-                    loadCategories();
-                    clearForm();
+                    JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                        "Category deactivated.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    loadCategories(); clearForm();
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageCategoriesPanel.this,
-                            "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
     private void populateForm() {
         int row = categoryTable.getSelectedRow();
         if (row < 0) return;
         selectedCategoryID = (int) tableModel.getValueAt(row, 0);
-        txtName.setText((String) tableModel.getValueAt(row, 1));
+        txtName       .setText((String) tableModel.getValueAt(row, 1));
         txtDescription.setText((String) tableModel.getValueAt(row, 2));
         chkActive.setSelected("Yes".equals(tableModel.getValueAt(row, 3)));
     }

@@ -7,6 +7,8 @@ import neustlibrarysystem.util.PasswordUtil;
 import neustlibrarysystem.util.ValidationUtil;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -23,6 +25,14 @@ public class ManageLibrariansPanel extends JPanel {
     private final LibrarianDAO librarianDAO = new LibrarianDAO();
     private int selectedLibrarianID = -1;
 
+    // ── Copied color/font constants from ManageMembersPanel / LibrarianDashboard ──
+    private static final Color CLR_BG      = new Color(0xf5faed);
+    private static final Color CLR_PRIMARY = new Color(0x4a7c10);
+    private static final Color CLR_ACCENT  = new Color(0x8aab3c);
+    private static final Font  FONT_HEADER = new Font("Segoe UI", Font.BOLD, 22);
+    private static final Font  FONT_LABEL  = new Font("Segoe UI", Font.BOLD, 13);
+    private static final Font  FONT_BODY   = new Font("Segoe UI", Font.PLAIN, 13);
+
     public ManageLibrariansPanel(Admin currentAdmin) {
         this.currentAdmin = currentAdmin;
         initComponents();
@@ -30,42 +40,121 @@ public class ManageLibrariansPanel extends JPanel {
     }
 
     private void initComponents() {
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setLayout(new BorderLayout(0, 0));
+        setBackground(CLR_BG);
+        setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        JLabel title = new JLabel("Manage Librarians");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        title.setForeground(new Color(0x1B4F72));
-        add(title, BorderLayout.NORTH);
+        // ── Header ────────────────────────────────────────────────────────────
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(CLR_BG);
+        header.setBorder(new EmptyBorder(0, 0, 14, 0));
 
+        JLabel title = new JLabel("👤   Manage Librarians");
+        title.setFont(FONT_HEADER);
+        title.setForeground(CLR_PRIMARY);
+        header.add(title, BorderLayout.WEST);
+        add(header, BorderLayout.NORTH);
+
+        // ── Table ─────────────────────────────────────────────────────────────
         String[] cols = {"ID", "Employee ID", "First Name", "Last Name", "Email", "Contact", "Active"};
         tableModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         librarianTable = new JTable(tableModel);
-        librarianTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        librarianTable.setRowHeight(26);
-        librarianTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        librarianTable.setFont(FONT_BODY);
+        librarianTable.setRowHeight(28);
+        librarianTable.setShowGrid(true);
+        librarianTable.setGridColor(new Color(0xd4e6a0));
         librarianTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         librarianTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) populateForm();
         });
-        add(new JScrollPane(librarianTable), BorderLayout.CENTER);
 
+        // ── Custom green header renderer (copied from ManageMembersPanel) ─────
+        librarianTable.getTableHeader().setPreferredSize(new Dimension(0, 36));
+        librarianTable.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object val,
+                    boolean sel, boolean foc, int r, int c) {
+                JLabel lbl = new JLabel(val == null ? "" : val.toString());
+                lbl.setFont(FONT_LABEL);
+                lbl.setForeground(Color.BLACK);
+                lbl.setBackground(new Color(0xd6eaa0));
+                lbl.setOpaque(true);
+                lbl.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 2, 1, new Color(0x8aab3c)),
+                    BorderFactory.createEmptyBorder(4, 8, 4, 8)
+                ));
+                lbl.setHorizontalAlignment(SwingConstants.LEFT);
+                return lbl;
+            }
+        });
+
+        // ── Striped row renderer + inactive gray (copied from ManageMembersPanel) ──
+        librarianTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object val,
+                    boolean sel, boolean foc, int r, int c) {
+                Component comp = super.getTableCellRendererComponent(t, val, sel, foc, r, c);
+                ((JComponent) comp).setOpaque(true);
+                if (!sel) {
+                    String active = String.valueOf(tableModel.getValueAt(r, 6));
+                    if ("No".equals(active)) {
+                        comp.setBackground(new Color(0xf5e6e6));
+                        comp.setForeground(new Color(0xaaaaaa));
+                    } else {
+                        comp.setBackground(r % 2 == 0 ? Color.WHITE : new Color(0xf4fae8));
+                        comp.setForeground(new Color(0x303c1b));
+                    }
+                }
+                return comp;
+            }
+        });
+
+        librarianTable.getColumnModel().getColumn(0).setMaxWidth(50);
+        librarianTable.getColumnModel().getColumn(1).setMaxWidth(110);
+        librarianTable.getColumnModel().getColumn(6).setMaxWidth(60);
+
+        JScrollPane scroll = new JScrollPane(librarianTable);
+        scroll.setBorder(BorderFactory.createLineBorder(CLR_ACCENT, 1));
+        scroll.getViewport().setBackground(Color.WHITE);
+        add(scroll, BorderLayout.CENTER);
+
+        // ── Form Panel ────────────────────────────────────────────────────────
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder("Librarian Details"));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(6, 8, 6, 8);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill   = GridBagConstraints.HORIZONTAL;
+        formPanel.setBackground(CLR_BG);
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(CLR_ACCENT, 1),
+                "Librarian Details",
+                javax.swing.border.TitledBorder.LEFT,
+                javax.swing.border.TitledBorder.TOP,
+                FONT_LABEL, CLR_PRIMARY
+            ),
+            new EmptyBorder(6, 8, 6, 8)
+        ));
 
-        txtEmployeeID = new JTextField(15);
-        txtFirstName  = new JTextField(20);
-        txtLastName   = new JTextField(20);
-        txtEmail      = new JTextField(25);
-        txtContact    = new JTextField(15);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets  = new Insets(5, 8, 5, 8);
+        gbc.anchor  = GridBagConstraints.WEST;
+        gbc.fill    = GridBagConstraints.HORIZONTAL;
+
+        txtEmployeeID = styledField(15);
+        txtFirstName  = styledField(20);
+        txtLastName   = styledField(20);
+        txtEmail      = styledField(25);
+        txtContact    = styledField(15);
         txtPassword   = new JPasswordField(20);
-        chkActive     = new JCheckBox("Active", true);
+        txtPassword.setFont(FONT_BODY);
+        txtPassword.setForeground(new Color(0x303c1b));
+        txtPassword.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_ACCENT, 1, true),
+            new EmptyBorder(5, 10, 5, 10)
+        ));
+        chkActive = new JCheckBox("Active", true);
+        chkActive.setFont(FONT_BODY);
+        chkActive.setBackground(CLR_BG);
+        chkActive.setForeground(new Color(0x303c1b));
 
         Object[][] fields = {
             {"Employee ID: *", txtEmployeeID}, {"First Name: *", txtFirstName},
@@ -76,27 +165,31 @@ public class ManageLibrariansPanel extends JPanel {
         for (int i = 0; i < fields.length; i++) {
             gbc.gridx = 0; gbc.gridy = i; gbc.weightx = 0;
             JLabel lbl = new JLabel((String) fields[i][0]);
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            lbl.setFont(FONT_LABEL);
+            lbl.setForeground(new Color(0x303c1b));
             formPanel.add(lbl, gbc);
+
             gbc.gridx = 1; gbc.weightx = 1;
-            JComponent comp = (JComponent) fields[i][1];
-            comp.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            formPanel.add(comp, gbc);
+            formPanel.add((JComponent) fields[i][1], gbc);
         }
 
         gbc.gridx = 1; gbc.gridy = 6;
-        JLabel passHint = new JLabel("<html><i>Leave blank to keep existing password on update.</i></html>");
-        passHint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        passHint.setForeground(Color.GRAY);
-        formPanel.add(passHint, gbc);
+        JLabel hint = new JLabel("<html><i>Leave blank to keep existing password on update.</i></html>");
+        hint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        hint.setForeground(Color.GRAY);
+        formPanel.add(hint, gbc);
+
         gbc.gridy = 7;
         formPanel.add(chkActive, gbc);
 
-        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 5));
-        btnAdd    = createBtn("Add",        new Color(0x117A65), Color.WHITE);
-        btnUpdate = createBtn("Update",     new Color(0x1B4F72), Color.WHITE);
-        btnDelete = createBtn("Deactivate", new Color(0xC0392B), Color.WHITE);
-        btnClear  = createBtn("Clear",      Color.LIGHT_GRAY,    Color.DARK_GRAY);
+        // ── Buttons (green theme) ─────────────────────────────────────────────
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 5));
+        btnPanel.setOpaque(false);
+
+        btnAdd    = primaryBtn("➕  Add");
+        btnUpdate = primaryBtn("✏️  Update");
+        btnDelete = accentBtn ("🚫  Deactivate");
+        btnClear  = accentBtn ("🗑  Clear");
 
         btnAdd   .addActionListener(e -> addLibrarian());
         btnUpdate.addActionListener(e -> updateLibrarian());
@@ -108,18 +201,44 @@ public class ManageLibrariansPanel extends JPanel {
 
         gbc.gridx = 0; gbc.gridy = 8; gbc.gridwidth = 2;
         formPanel.add(btnPanel, gbc);
+
         add(formPanel, BorderLayout.SOUTH);
     }
 
-    private JButton createBtn(String text, Color bg, Color fg) {
-        JButton btn = new JButton(text);
-        btn.setBackground(bg); btn.setForeground(fg);
-        btn.setFocusPainted(false);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        return btn;
+    // ── Green-themed button helpers ───────────────────────────────────────────
+    private JButton primaryBtn(String text) {
+        JButton b = new JButton(text);
+        b.setFont(FONT_LABEL);
+        b.setForeground(Color.WHITE);
+        b.setBackground(CLR_PRIMARY);
+        b.setFocusPainted(false);
+        b.setBorder(new EmptyBorder(7, 18, 7, 18));
+        return b;
     }
 
-    // Helper — i-disable lahat ng buttons habang nag-proprocess
+    private JButton accentBtn(String text) {
+        JButton b = new JButton(text);
+        b.setFont(FONT_LABEL);
+        b.setForeground(new Color(0x303c1b));
+        b.setBackground(new Color(0xd6eaa0));
+        b.setFocusPainted(false);
+        b.setBorder(new EmptyBorder(7, 18, 7, 18));
+        return b;
+    }
+
+    // ── Styled text field helper ──────────────────────────────────────────────
+    private JTextField styledField(int cols) {
+        JTextField f = new JTextField(cols);
+        f.setFont(FONT_BODY);
+        f.setForeground(new Color(0x303c1b));
+        f.setBackground(Color.WHITE);
+        f.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_ACCENT, 1, true),
+            new EmptyBorder(5, 10, 5, 10)
+        ));
+        return f;
+    }
+
     private void setButtonsEnabled(boolean enabled) {
         btnAdd.setEnabled(enabled);
         btnUpdate.setEnabled(enabled);
@@ -127,24 +246,21 @@ public class ManageLibrariansPanel extends JPanel {
         btnClear.setEnabled(enabled);
     }
 
-    // ─── SwingWorker: loadLibrarians ─────────────────────────────────────────────
+    // ─── SwingWorker: loadLibrarians ─────────────────────────────────────────
     private void loadLibrarians() {
         setButtonsEnabled(false);
 
-        SwingWorker<List<Librarian>, Void> worker = new SwingWorker<>() {
+        new SwingWorker<List<Librarian>, Void>() {
             @Override
             protected List<Librarian> doInBackground() {
-                // Nasa background thread — ligtas mag-query ng DB dito
                 return librarianDAO.getAll();
             }
 
             @Override
             protected void done() {
-                // Balik sa EDT para i-update ang table
                 try {
-                    List<Librarian> list = get();
                     tableModel.setRowCount(0);
-                    for (Librarian l : list) {
+                    for (Librarian l : get()) {
                         tableModel.addRow(new Object[]{
                             l.getLibrarianID(), l.getEmployeeID(),
                             l.getFirstName(),   l.getLastName(),
@@ -153,21 +269,17 @@ public class ManageLibrariansPanel extends JPanel {
                         });
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageLibrariansPanel.this,
-                            "Error loading librarians: " + ex.getMessage(),
-                            "Error", JOptionPane.ERROR_MESSAGE
-                    );
+                    JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                        "Error loading librarians: " + ex.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setButtonsEnabled(true);
                 }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
-    // ─── SwingWorker: addLibrarian ───────────────────────────────────────────────
+    // ─── SwingWorker: addLibrarian ───────────────────────────────────────────
     private void addLibrarian() {
         String empID = txtEmployeeID.getText().trim();
         String fn    = txtFirstName .getText().trim();
@@ -176,7 +288,8 @@ public class ManageLibrariansPanel extends JPanel {
         String pass  = new String(txtPassword.getPassword());
 
         if (empID.isEmpty() || fn.isEmpty() || ln.isEmpty() || email.isEmpty() || pass.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Employee ID, name, email, and password are required.",
+            JOptionPane.showMessageDialog(this,
+                "Employee ID, name, email, and password are required.",
                 "Validation", JOptionPane.WARNING_MESSAGE); return;
         }
         if (!ValidationUtil.isValidEmail(email)) {
@@ -184,7 +297,6 @@ public class ManageLibrariansPanel extends JPanel {
                 "Validation", JOptionPane.WARNING_MESSAGE); return;
         }
 
-        // I-build ang Librarian object bago pumasok sa background thread
         Librarian l = new Librarian();
         l.setEmployeeID   (empID);
         l.setFirstName    (fn);
@@ -195,46 +307,33 @@ public class ManageLibrariansPanel extends JPanel {
 
         setButtonsEnabled(false);
 
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Boolean doInBackground() {
-                return librarianDAO.add(l, pass);
-            }
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() { return librarianDAO.add(l, pass); }
 
             @Override
             protected void done() {
                 try {
                     if (get()) {
-                        JOptionPane.showMessageDialog(
-                                ManageLibrariansPanel.this,
-                                "Librarian added!", "Success", JOptionPane.INFORMATION_MESSAGE
-                        );
-                        loadLibrarians();
-                        clearForm();
+                        JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                            "✔  Librarian added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadLibrarians(); clearForm();
                     } else {
-                        JOptionPane.showMessageDialog(
-                                ManageLibrariansPanel.this,
-                                "Failed to add librarian.", "Error", JOptionPane.ERROR_MESSAGE
-                        );
+                        JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                            "Failed to add librarian.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageLibrariansPanel.this,
-                            "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
-    // ─── SwingWorker: updateLibrarian ───────────────────────────────────────────
+    // ─── SwingWorker: updateLibrarian ───────────────────────────────────────
     private void updateLibrarian() {
         if (selectedLibrarianID < 0) {
-            JOptionPane.showMessageDialog(this, "Select a librarian first.", "Warning", JOptionPane.WARNING_MESSAGE); return;
+            JOptionPane.showMessageDialog(this, "Select a librarian first.",
+                "Warning", JOptionPane.WARNING_MESSAGE); return;
         }
         String fn    = txtFirstName.getText().trim();
         String ln    = txtLastName .getText().trim();
@@ -245,18 +344,16 @@ public class ManageLibrariansPanel extends JPanel {
                 "Validation", JOptionPane.WARNING_MESSAGE); return;
         }
 
-        // I-capture ang values bago pumasok sa background thread
-        int    idToUpdate   = selectedLibrarianID;
-        String contact      = txtContact.getText().trim();
-        boolean active      = chkActive.isSelected();
-        String pass         = new String(txtPassword.getPassword());
+        int     idToUpdate = selectedLibrarianID;
+        String  contact    = txtContact.getText().trim();
+        boolean active     = chkActive.isSelected();
+        String  pass       = new String(txtPassword.getPassword());
 
         setButtonsEnabled(false);
 
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+        new SwingWorker<Boolean, Void>() {
             @Override
             protected Boolean doInBackground() {
-                // Fetch at update sa background thread
                 Librarian l = librarianDAO.getByID(idToUpdate);
                 if (l == null) return false;
                 l.setFirstName    (fn);
@@ -273,77 +370,54 @@ public class ManageLibrariansPanel extends JPanel {
                 try {
                     Boolean result = get();
                     if (result == null || !result) {
-                        JOptionPane.showMessageDialog(
-                                ManageLibrariansPanel.this,
-                                "Failed to update librarian.", "Error", JOptionPane.ERROR_MESSAGE
-                        );
+                        JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                            "Failed to update librarian.", "Error", JOptionPane.ERROR_MESSAGE);
                     } else {
-                        JOptionPane.showMessageDialog(
-                                ManageLibrariansPanel.this,
-                                "Librarian updated!", "Success", JOptionPane.INFORMATION_MESSAGE
-                        );
-                        loadLibrarians();
-                        clearForm();
+                        JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                            "✔  Librarian updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadLibrarians(); clearForm();
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageLibrariansPanel.this,
-                            "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
-    // ─── SwingWorker: deactivateLibrarian ───────────────────────────────────────
+    // ─── SwingWorker: deactivateLibrarian ───────────────────────────────────
     private void deactivateLibrarian() {
         if (selectedLibrarianID < 0) {
-            JOptionPane.showMessageDialog(this, "Select a librarian first.", "Warning", JOptionPane.WARNING_MESSAGE); return;
+            JOptionPane.showMessageDialog(this, "Select a librarian first.",
+                "Warning", JOptionPane.WARNING_MESSAGE); return;
         }
-        if (JOptionPane.showConfirmDialog(this, "Deactivate this librarian?", "Confirm",
-                JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+        if (JOptionPane.showConfirmDialog(this, "Deactivate this librarian?",
+                "Confirm", JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE) != JOptionPane.YES_OPTION) return;
 
         int idToDeactivate = selectedLibrarianID;
         setButtonsEnabled(false);
 
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Boolean doInBackground() {
-                return librarianDAO.deactivate(idToDeactivate);
-            }
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() { return librarianDAO.deactivate(idToDeactivate); }
 
             @Override
             protected void done() {
                 try {
                     if (get()) {
-                        JOptionPane.showMessageDialog(
-                                ManageLibrariansPanel.this,
-                                "Librarian deactivated.", "Success", JOptionPane.INFORMATION_MESSAGE
-                        );
-                        loadLibrarians();
-                        clearForm();
+                        JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                            "✔  Librarian deactivated.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadLibrarians(); clearForm();
                     } else {
-                        JOptionPane.showMessageDialog(
-                                ManageLibrariansPanel.this,
-                                "Failed to deactivate librarian.", "Error", JOptionPane.ERROR_MESSAGE
-                        );
+                        JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                            "Failed to deactivate.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            ManageLibrariansPanel.this,
-                            "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE
-                    );
-                } finally {
-                    setButtonsEnabled(true);
-                }
+                    JOptionPane.showMessageDialog(ManageLibrariansPanel.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally { setButtonsEnabled(true); }
             }
-        };
-
-        worker.execute();
+        }.execute();
     }
 
     private void populateForm() {

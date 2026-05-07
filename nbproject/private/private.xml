@@ -32,7 +32,6 @@
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/PublisherDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/SystemSettingsDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/BookConditionLogDAO.java</file>
-            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/BrowseBooksPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/BorrowHistoryPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/ReservationPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/ProfilePanel.java</file>
@@ -48,6 +47,7 @@
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/ProcessReturnPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/ManageReservationsPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/ManageMembersPanel.java</file>
+            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/BrowseBooksPanel.java</file>
         </group>
     </open-files>
 </project-private>
