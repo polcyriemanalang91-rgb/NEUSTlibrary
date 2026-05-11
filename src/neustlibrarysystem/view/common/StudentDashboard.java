@@ -6,6 +6,7 @@ import neustlibrarysystem.dao.ReservationDAO;
 import neustlibrarysystem.model.Book;
 import neustlibrarysystem.model.BorrowedRecord;
 import neustlibrarysystem.model.Member;
+import neustlibrarysystem.model.Reservation;   // ← add this import (adjust package if needed)
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -89,6 +90,11 @@ public class StudentDashboard extends JFrame {
     // ── Borrow History ────────────────────────────────────────────────────────
     private JTable            historyTable;
     private DefaultTableModel historyModel;
+
+    // ── Reservation History ───────────────────────────────────────────────────
+    private JTable            reservationTable;
+    private DefaultTableModel reservationModel;
+    private JButton           cancelReservationBtn;
 
     // ── Dashboard stats ───────────────────────────────────────────────────────
     private JLabel statBorrowedVal, statReservedVal, statOverdueVal, statReturnedVal;
@@ -254,11 +260,12 @@ public class StudentDashboard extends JFrame {
         contentPanel.setBackground(CLR_BG);
         contentPanel.setBorder(new EmptyBorder(20, 24, 20, 24));
 
-        contentPanel.add(buildDashboardPanel(),  "dashboard");
-        contentPanel.add(buildBooksPanel(),      "books");
-        contentPanel.add(buildBorrowBookPanel(), "borrowBook");
-        contentPanel.add(buildHistoryPanel(),    "history");
-        contentPanel.add(buildProfilePanel(),    "profile");
+        contentPanel.add(buildDashboardPanel(),       "dashboard");
+        contentPanel.add(buildBooksPanel(),           "books");
+        contentPanel.add(buildBorrowBookPanel(),      "borrowBook");
+        contentPanel.add(buildHistoryPanel(),         "history");
+        contentPanel.add(buildReservationHistoryPanel(), "reservations"); // ← NEW
+        contentPanel.add(buildProfilePanel(),         "profile");
 
         mainArea.add(contentPanel, BorderLayout.CENTER);
         root.add(mainArea, BorderLayout.CENTER);
@@ -346,13 +353,14 @@ public class StudentDashboard extends JFrame {
         navContainer.setBorder(new EmptyBorder(16, 0, 16, 0));
 
         addSectionLabel(navContainer, "MAIN");
-        addNavBtn(navContainer, IconType.DASHBOARD, "Dashboard",      "dashboard");
+        addNavBtn(navContainer, IconType.DASHBOARD, "Dashboard",        "dashboard");
         addSectionLabel(navContainer, "LIBRARY");
-        addNavBtn(navContainer, IconType.BOOKS,     "Browse Books",   "books");
-        addNavBtn(navContainer, IconType.BORROW,    "Borrow Book",    "borrowBook");
-        addNavBtn(navContainer, IconType.HISTORY,   "Borrow History", "history");
+        addNavBtn(navContainer, IconType.BOOKS,     "Browse Books",     "books");
+        addNavBtn(navContainer, IconType.BORROW,    "Borrow Book",      "borrowBook");
+        addNavBtn(navContainer, IconType.HISTORY,   "Borrow History",   "history");
+        addNavBtn(navContainer, IconType.RESERVE,   "My Reservations",  "reservations"); // ← NEW
         addSectionLabel(navContainer, "ACCOUNT");
-        addNavBtn(navContainer, IconType.PROFILE,   "My Profile",     "profile");
+        addNavBtn(navContainer, IconType.PROFILE,   "My Profile",       "profile");
         sidebar.add(navContainer, BorderLayout.CENTER);
 
         // Bottom user + logout
@@ -491,9 +499,10 @@ public class StudentDashboard extends JFrame {
             btn.setForeground(CLR_ACCENT);
             activeNavBtn = btn;
             cardLayout.show(contentPanel, card);
-            if ("history".equals(card))    loadHistory();
-            if ("dashboard".equals(card))  refreshDashboardStats();
-            if ("borrowBook".equals(card)) loadBorrowBooks();
+            if ("history".equals(card))       loadHistory();
+            if ("reservations".equals(card))  loadReservations(); // ← NEW
+            if ("dashboard".equals(card))     refreshDashboardStats();
+            if ("borrowBook".equals(card))    loadBorrowBooks();
         });
         container.add(btn);
         container.add(Box.createVerticalStrut(2));
@@ -618,17 +627,18 @@ public class StudentDashboard extends JFrame {
         cardsRow.add(buildStatCard("Overdue Books",      "Past return date",     statOverdueVal,  CLR_CARD_RED,    IconType.OVERDUE));
         cardsRow.add(buildStatCard("Books Returned",     "All time",             statReturnedVal, CLR_CARD_GREEN,  IconType.HISTORY));
 
-        // Quick actions — now 4 cards
+        // Quick actions — 5 cards now
         JLabel qaLabel = new JLabel("Quick Actions");
         qaLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         qaLabel.setForeground(Color.WHITE);
 
-        JPanel qaGrid = new JPanel(new GridLayout(1, 4, 16, 0));
+        JPanel qaGrid = new JPanel(new GridLayout(1, 5, 12, 0));
         qaGrid.setBackground(CLR_BG);
-        qaGrid.add(buildQuickActionCard("Browse Books",   "Search library catalog",     IconType.BOOKS,   "books"));
-        qaGrid.add(buildQuickActionCard("Borrow Book",    "Borrow available books",     IconType.BORROW,  "borrowBook"));
-        qaGrid.add(buildQuickActionCard("Borrow History", "View your borrowing records", IconType.HISTORY, "history"));
-        qaGrid.add(buildQuickActionCard("My Profile",     "View and edit your info",    IconType.PROFILE, "profile"));
+        qaGrid.add(buildQuickActionCard("Browse Books",     "Search library catalog",      IconType.BOOKS,   "books"));
+        qaGrid.add(buildQuickActionCard("Borrow Book",      "Borrow available books",      IconType.BORROW,  "borrowBook"));
+        qaGrid.add(buildQuickActionCard("Borrow History",   "View your borrowing records", IconType.HISTORY, "history"));
+        qaGrid.add(buildQuickActionCard("My Reservations",  "Track reserved books",        IconType.RESERVE, "reservations")); // ← NEW
+        qaGrid.add(buildQuickActionCard("My Profile",       "View and edit your info",     IconType.PROFILE, "profile"));
 
         JPanel center = new JPanel();
         center.setBackground(CLR_BG);
@@ -716,8 +726,9 @@ public class StudentDashboard extends JFrame {
             public void mouseClicked(MouseEvent e) {
                 cardLayout.show(contentPanel, card);
                 selectNavByCard(card);
-                if ("history".equals(card))    loadHistory();
-                if ("borrowBook".equals(card)) loadBorrowBooks();
+                if ("history".equals(card))      loadHistory();
+                if ("reservations".equals(card)) loadReservations(); // ← NEW
+                if ("borrowBook".equals(card))   loadBorrowBooks();
             }
         });
         return p;
@@ -784,7 +795,6 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 14));
         panel.setBackground(CLR_BG);
 
-        // Header
         JPanel headerRow = new JPanel(new BorderLayout());
         headerRow.setBackground(CLR_BG);
         JLabel header = new JLabel("Browse Books");
@@ -797,7 +807,6 @@ public class StudentDashboard extends JFrame {
         hText.add(header); hText.add(sub);
         headerRow.add(hText, BorderLayout.WEST);
 
-        // Search bar
         JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         searchBar.setBackground(CLR_BG);
         searchField = new JTextField(28);
@@ -835,7 +844,6 @@ public class StudentDashboard extends JFrame {
         topSection.add(headerRow,  BorderLayout.NORTH);
         topSection.add(searchBar,  BorderLayout.SOUTH);
 
-        // Table
         String[] cols = {"ID", "Title", "Authors", "Category", "Publisher", "Availability", "Location"};
         bookModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
@@ -856,7 +864,6 @@ public class StudentDashboard extends JFrame {
         tableScroll.getViewport().setBackground(new Color(0x1a2e1a));
         tableScroll.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
 
-        // Action buttons
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         actions.setBackground(CLR_BG);
         reserveBtn = makeActionButton("  Reserve Selected Book", IconType.RESERVE, CLR_ACCENT);
@@ -884,7 +891,6 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 14));
         panel.setBackground(CLR_BG);
 
-        // Header
         JPanel headerRow = new JPanel(new BorderLayout());
         headerRow.setBackground(CLR_BG);
         JPanel hText = new JPanel();
@@ -904,7 +910,6 @@ public class StudentDashboard extends JFrame {
         headerRow.add(hText,              BorderLayout.WEST);
         headerRow.add(borrowStatusLabel,  BorderLayout.EAST);
 
-        // Search / filter bar
         JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         searchBar.setBackground(CLR_BG);
 
@@ -962,7 +967,6 @@ public class StudentDashboard extends JFrame {
         topSection.add(headerRow, BorderLayout.NORTH);
         topSection.add(searchBar, BorderLayout.SOUTH);
 
-        // Book table
         String[] cols = {"ID", "Title", "Authors", "Category", "Publisher", "Available", "Location"};
         borrowModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
@@ -970,7 +974,6 @@ public class StudentDashboard extends JFrame {
         };
         borrowTable = new JTable(borrowModel);
         styleTable(borrowTable);
-        // Color-code availability column
         borrowTable.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(
                     JTable t, Object v, boolean sel, boolean foc, int r, int c) {
@@ -996,7 +999,6 @@ public class StudentDashboard extends JFrame {
         borrowTable.getColumnModel().getColumn(5).setPreferredWidth(90);
         borrowTable.getColumnModel().getColumn(6).setPreferredWidth(90);
 
-        // Row selection → update form
         borrowTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) onBorrowRowSelected();
         });
@@ -1006,7 +1008,6 @@ public class StudentDashboard extends JFrame {
         tableScroll.getViewport().setBackground(new Color(0x1a2e1a));
         tableScroll.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
 
-        // Borrow form card
         JPanel formCard = new JPanel(new GridBagLayout());
         formCard.setBackground(CLR_CARD_BG);
         formCard.setBorder(BorderFactory.createCompoundBorder(
@@ -1017,14 +1018,12 @@ public class StudentDashboard extends JFrame {
         gc.insets  = new Insets(4, 8, 4, 8);
         gc.anchor  = GridBagConstraints.WEST;
 
-        // Form title
         gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 4;
         JLabel formTitle = new JLabel("Borrow Request");
         formTitle.setFont(FONT_LABEL);
         formTitle.setForeground(CLR_ACCENT);
         formCard.add(formTitle, gc);
 
-        // Selected book row
         gc.gridwidth = 1; gc.gridy = 1; gc.gridx = 0;
         formCard.add(dimLabel("Selected Book:"), gc);
         gc.gridx = 1; gc.gridwidth = 3;
@@ -1033,7 +1032,6 @@ public class StudentDashboard extends JFrame {
         borrowSelectedLabel.setForeground(CLR_TEXT_DIM);
         formCard.add(borrowSelectedLabel, gc);
 
-        // Loan duration row
         gc.gridwidth = 1; gc.gridy = 2; gc.gridx = 0;
         formCard.add(dimLabel("Loan Duration:"), gc);
         gc.gridx = 1;
@@ -1059,7 +1057,6 @@ public class StudentDashboard extends JFrame {
         updateBorrowReturnDate();
         formCard.add(borrowReturnDateLabel, gc);
 
-        // Buttons row
         gc.gridy = 3; gc.gridx = 0; gc.gridwidth = 2;
         borrowSubmitBtn = makeActionButton("  Borrow Book", IconType.BORROW, CLR_ACCENT);
         borrowSubmitBtn.setEnabled(false);
@@ -1077,7 +1074,6 @@ public class StudentDashboard extends JFrame {
         clearSelBtn.addActionListener(e -> clearBorrowSelection());
         formCard.add(clearSelBtn, gc);
 
-        // Stack table + form vertically with a split
         JPanel centerArea = new JPanel(new BorderLayout(0, 10));
         centerArea.setBackground(CLR_BG);
         centerArea.add(tableScroll, BorderLayout.CENTER);
@@ -1120,7 +1116,6 @@ public class StudentDashboard extends JFrame {
         historyTable.getColumnModel().getColumn(5).setPreferredWidth(100);
         historyTable.getColumnModel().getColumn(6).setPreferredWidth(90);
 
-        // Color-code status
         historyTable.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(
                     JTable t, Object v, boolean sel, boolean foc, int r, int c) {
@@ -1145,6 +1140,118 @@ public class StudentDashboard extends JFrame {
 
         panel.add(headerArea,  BorderLayout.NORTH);
         panel.add(tableScroll, BorderLayout.CENTER);
+        return panel;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  MY RESERVATIONS PANEL  ← NEW
+    // ════════════════════════════════════════════════════════════════════════
+    private JPanel buildReservationHistoryPanel() {
+        JPanel panel = new JPanel(new BorderLayout(0, 14));
+        panel.setBackground(CLR_BG);
+
+        // Header
+        JPanel headerRow = new JPanel(new BorderLayout());
+        headerRow.setBackground(CLR_BG);
+        JPanel hText = new JPanel();
+        hText.setBackground(CLR_BG);
+        hText.setLayout(new BoxLayout(hText, BoxLayout.Y_AXIS));
+        JLabel title = new JLabel("My Reservations");
+        title.setFont(FONT_HEADER); title.setForeground(Color.WHITE);
+        JLabel sub = new JLabel("All books you have reserved");
+        sub.setFont(FONT_SUBHDR); sub.setForeground(CLR_TEXT_DIM);
+        hText.add(title); hText.add(sub);
+
+        JButton refreshBtn = makeActionButton("  Refresh", IconType.REFRESH, CLR_ACCENT2);
+        refreshBtn.addActionListener(e -> loadReservations());
+        headerRow.add(hText,       BorderLayout.WEST);
+        headerRow.add(refreshBtn,  BorderLayout.EAST);
+
+        // Table
+        String[] cols = {
+            "Reservation ID", "Book Title", "Authors",
+            "Date Reserved", "Expiry Date", "Status"
+        };
+        reservationModel = new DefaultTableModel(cols, 0) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+            @Override public Class<?> getColumnClass(int col) { return String.class; }
+        };
+        reservationTable = new JTable(reservationModel);
+        styleTable(reservationTable);
+        reservationTable.getColumnModel().getColumn(0).setPreferredWidth(110);
+        reservationTable.getColumnModel().getColumn(1).setPreferredWidth(260);
+        reservationTable.getColumnModel().getColumn(2).setPreferredWidth(170);
+        reservationTable.getColumnModel().getColumn(3).setPreferredWidth(110);
+        reservationTable.getColumnModel().getColumn(4).setPreferredWidth(110);
+        reservationTable.getColumnModel().getColumn(5).setPreferredWidth(100);
+
+        // Color-code Status column
+        reservationTable.getColumnModel().getColumn(5).setCellRenderer(
+            new DefaultTableCellRenderer() {
+                @Override public Component getTableCellRendererComponent(
+                        JTable t, Object v, boolean sel, boolean foc, int r, int c) {
+                    super.getTableCellRendererComponent(t, v, sel, foc, r, c);
+                    String val = v != null ? v.toString() : "";
+                    if (!sel) {
+                        switch (val.toLowerCase()) {
+                            case "pending", "active" -> setForeground(CLR_CARD_CYAN);
+                            case "fulfilled"         -> setForeground(CLR_CARD_GREEN);
+                            case "cancelled"         -> setForeground(CLR_TEXT_DIM);
+                            case "expired"           -> setForeground(CLR_CARD_RED);
+                            default                  -> setForeground(CLR_TEXT_DIM);
+                        }
+                        setBackground(new Color(0x1a2e1a));
+                    }
+                    return this;
+                }
+            }
+        );
+
+        JScrollPane tableScroll = new JScrollPane(reservationTable);
+        tableScroll.getViewport().setBackground(new Color(0x1a2e1a));
+        tableScroll.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
+
+        // Action bar
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        actions.setBackground(CLR_BG);
+
+        cancelReservationBtn = makeActionButton("  Cancel Reservation", IconType.OVERDUE,
+            new Color(0xf44336));
+        cancelReservationBtn.setBackground(new Color(0x3d1a1a));
+        cancelReservationBtn.setEnabled(false);
+        cancelReservationBtn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                if (cancelReservationBtn.isEnabled())
+                    cancelReservationBtn.setBackground(new Color(0x5a1a1a));
+            }
+            public void mouseExited(MouseEvent e) {
+                if (cancelReservationBtn.isEnabled())
+                    cancelReservationBtn.setBackground(new Color(0x3d1a1a));
+            }
+        });
+        cancelReservationBtn.addActionListener(e -> cancelSelectedReservation());
+
+        // Enable cancel button only when a pending/active row is selected
+        reservationTable.getSelectionModel().addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting()) return;
+            int row = reservationTable.getSelectedRow();
+            if (row < 0) { cancelReservationBtn.setEnabled(false); return; }
+            int modelRow = reservationTable.convertRowIndexToModel(row);
+            String status = reservationModel.getValueAt(modelRow, 5).toString().toLowerCase();
+            cancelReservationBtn.setEnabled(
+                status.equals("pending") || status.equals("active"));
+        });
+
+        JLabel hint = new JLabel("Select a pending reservation to cancel it.");
+        hint.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        hint.setForeground(CLR_TEXT_DIM);
+
+        actions.add(cancelReservationBtn);
+        actions.add(hint);
+
+        panel.add(headerRow,   BorderLayout.NORTH);
+        panel.add(tableScroll, BorderLayout.CENTER);
+        panel.add(actions,     BorderLayout.SOUTH);
         return panel;
     }
 
@@ -1332,6 +1439,35 @@ public class StudentDashboard extends JFrame {
         }.execute();
     }
 
+    // ── NEW: load reservations ────────────────────────────────────────────────
+    private void loadReservations() {
+        new SwingWorker<List<Reservation>, Void>() {
+            @Override protected List<Reservation> doInBackground() {
+                return resDAO.getMemberReservations(member.getMemberID());
+            }
+            @Override protected void done() {
+                try {
+                    reservationModel.setRowCount(0);
+                    cancelReservationBtn.setEnabled(false);
+                    for (Reservation r : get()) {
+                        String authors = r.getBookAuthors() != null ? r.getBookAuthors() : "—";
+                        reservationModel.addRow(new Object[]{
+                            String.valueOf(r.getReservationID()),
+                            
+                            r.getBookTitle()     != null ? r.getBookTitle()                   : "—",
+                            authors,
+                            r.getReservedDate() != null
+                                ? r.getReservedDate().format(DT_FMT) : "—",
+                            r.getExpiryDate()    != null
+                                ? r.getExpiryDate().format(DT_FMT)    : "—",
+                            r.getStatus()        != null ? r.getStatus()                     : "—"
+                        });
+                    }
+                } catch (Exception ignored) {}
+            }
+        }.execute();
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  BORROW BOOK ACTIONS
     // ════════════════════════════════════════════════════════════════════════
@@ -1387,9 +1523,8 @@ public class StudentDashboard extends JFrame {
 
         new SwingWorker<Boolean, Void>() {
             @Override protected Boolean doInBackground() {
-                // TODO: replace with your actual BorrowDAO call, e.g.:
-                // return borrowDAO.borrowBook(member.getMemberID(), bookID, days);
-                return true; // placeholder
+                return borrowDAO.submitBorrowRequest(
+                    member.getMemberID(), bookID, returnDate);
             }
             @Override protected void done() {
                 try {
@@ -1430,6 +1565,56 @@ public class StudentDashboard extends JFrame {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    //  RESERVATION ACTIONS  ← NEW
+    // ════════════════════════════════════════════════════════════════════════
+    private void cancelSelectedReservation() {
+        int row = reservationTable.getSelectedRow();
+        if (row < 0) return;
+        int modelRow = reservationTable.convertRowIndexToModel(row);
+        int    resID = Integer.parseInt(reservationModel.getValueAt(modelRow, 0).toString());
+        String title = reservationModel.getValueAt(modelRow, 1).toString();
+
+        int choice = JOptionPane.showConfirmDialog(this,
+            "<html><body style='font-family:Segoe UI;font-size:12px;'>"
+            + "<b>Cancel Reservation</b><br><br>"
+            + "Are you sure you want to cancel the reservation for:<br>"
+            + "<b>" + title + "</b>?</body></html>",
+            "Confirm Cancellation", JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+
+        if (choice != JOptionPane.YES_OPTION) return;
+
+        cancelReservationBtn.setEnabled(false);
+        cancelReservationBtn.setText("  Cancelling...");
+
+        new SwingWorker<Boolean, Void>() {
+            @Override protected Boolean doInBackground() {
+                return resDAO.cancelReservation(resID, member.getMemberID());
+            }
+            @Override protected void done() {
+                try {
+                    if (get()) {
+                        JOptionPane.showMessageDialog(StudentDashboard.this,
+                            "Reservation for \"" + title + "\" has been cancelled.",
+                            "Cancelled", JOptionPane.INFORMATION_MESSAGE);
+                        loadReservations();
+                        refreshDashboardStats();
+                    } else {
+                        JOptionPane.showMessageDialog(StudentDashboard.this,
+                            "Failed to cancel the reservation. Please try again.",
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(StudentDashboard.this,
+                        "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    cancelReservationBtn.setText("  Cancel Reservation");
+                }
+            }
+        }.execute();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     //  BROWSE BOOKS ACTIONS
     // ════════════════════════════════════════════════════════════════════════
     private void reserveSelectedBook() {
@@ -1458,7 +1643,9 @@ public class StudentDashboard extends JFrame {
                     try {
                         if (get()) {
                             JOptionPane.showMessageDialog(StudentDashboard.this,
-                                "Reservation submitted successfully!");
+                                "Reservation submitted successfully!\n"
+                                + "You can view it under \"My Reservations\".");
+                            refreshDashboardStats();
                         } else {
                             JOptionPane.showMessageDialog(StudentDashboard.this,
                                 "Failed to reserve. You may already have a pending reservation.",

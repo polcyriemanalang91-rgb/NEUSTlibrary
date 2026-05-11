@@ -45,6 +45,9 @@ public class Reservation {
     public void          setProcessedBy(Integer processedBy)        { this.processedBy = processedBy; }
     public LocalDateTime getProcessedDate()                         { return processedDate; }
     public void          setProcessedDate(LocalDateTime processedDate){ this.processedDate = processedDate; }
+    private String       bookAuthors;
+    public String        getBookAuthors()                                      { return bookAuthors; }
+    public void          setBookAuthors(String bookAuthors)                      { this.bookAuthors = bookAuthors; }
 
     @Override
     public String toString() { return "Reservation #" + reservationID + " - " + bookTitle; }

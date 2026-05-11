@@ -129,7 +129,7 @@ public class ReservationPanel extends JPanel {
         new SwingWorker<Boolean, Void>() {
             @Override
             protected Boolean doInBackground() {
-                return reservationDAO.cancelReservation(resID);
+                return reservationDAO.cancelReservation(resID, currentMember.getMemberID());
             }
 
             @Override

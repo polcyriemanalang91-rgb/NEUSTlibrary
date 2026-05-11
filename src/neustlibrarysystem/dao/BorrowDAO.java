@@ -225,6 +225,22 @@ public class BorrowDAO {
             ps.executeUpdate();
         } catch (SQLException e) { e.printStackTrace(); }
     }
+    
+    public boolean submitBorrowRequest(int memberId, int bookId, LocalDate preferredPickup) {
+    String sql = "INSERT INTO BorrowRequest "
+               + "(MemberID, BookID, RequestDate, PreferredPickup, Status) "
+               + "VALUES (?, ?, GETDATE(), ?, 'PENDING')";
+    try (Connection con = DatabaseConnection.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+        ps.setInt (1, memberId);
+        ps.setInt (2, bookId);
+        ps.setDate(3, preferredPickup != null ? Date.valueOf(preferredPickup) : null);
+        return ps.executeUpdate() > 0;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
 
     // ── REPORT METHODS ────────────────────────────────────────────────────────
 

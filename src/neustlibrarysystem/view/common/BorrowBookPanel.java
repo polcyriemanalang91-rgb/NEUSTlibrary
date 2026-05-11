@@ -1,4 +1,7 @@
-package view.common;
+package neustlibrarysystem.view.common;
+
+import neustlibrarysystem.dao.BorrowDAO;
+import neustlibrarysystem.model.Member;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -37,15 +40,16 @@ public class BorrowBookPanel extends JPanel {
     private static final Font FONT_BTN     = new Font("Segoe UI", Font.BOLD,  12);
 
     // ── Components ───────────────────────────────────────────────────────────
-    private JTextField      searchField;
+    private Member            currentMember;
+    private JTextField        searchField;
     private JComboBox<String> categoryFilter;
-    private JTable          bookTable;
+    private JTable            bookTable;
     private DefaultTableModel tableModel;
-    private JLabel          selectedBookLabel;
-    private JSpinner        daysSpinner;
-    private JLabel          returnDateLabel;
-    private JButton         borrowBtn;
-    private JLabel          statusLabel;
+    private JLabel            selectedBookLabel;
+    private JSpinner          daysSpinner;
+    private JLabel            returnDateLabel;
+    private JButton           borrowBtn;
+    private JLabel            statusLabel;
 
     // ── Column names ─────────────────────────────────────────────────────────
     private static final String[] COLUMNS = {
@@ -54,26 +58,27 @@ public class BorrowBookPanel extends JPanel {
 
     // ── Sample data (replace with DB calls) ──────────────────────────────────
     private static final Object[][] SAMPLE_DATA = {
-        {"BK001", "Introduction to Java Programming", "Herbert Schildt",    "Programming",  3},
-        {"BK002", "Data Structures & Algorithms",     "Thomas Cormen",      "Computer Sci", 2},
-        {"BK003", "Calculus: Early Transcendentals",  "James Stewart",      "Mathematics",  5},
-        {"BK004", "University Physics",               "Young & Freedman",   "Physics",      4},
-        {"BK005", "General Chemistry",                "Petrucci et al.",    "Chemistry",    2},
-        {"BK006", "Engineering Mechanics",            "Hibbeler R.C.",      "Engineering",  3},
-        {"BK007", "The Art of War",                   "Sun Tzu",            "Philosophy",   6},
-        {"BK008", "Discrete Mathematics",             "Kenneth Rosen",      "Mathematics",  1},
-        {"BK009", "Operating Systems Concepts",       "Silberschatz et al.","Computer Sci", 2},
-        {"BK010", "Database System Concepts",         "Korth & Sudarshan",  "Computer Sci", 4},
+        {"BK001", "Introduction to Java Programming", "Herbert Schildt",     "Programming",  3},
+        {"BK002", "Data Structures & Algorithms",     "Thomas Cormen",       "Computer Sci", 2},
+        {"BK003", "Calculus: Early Transcendentals",  "James Stewart",       "Mathematics",  5},
+        {"BK004", "University Physics",               "Young & Freedman",    "Physics",      4},
+        {"BK005", "General Chemistry",                "Petrucci et al.",     "Chemistry",    2},
+        {"BK006", "Engineering Mechanics",            "Hibbeler R.C.",       "Engineering",  3},
+        {"BK007", "The Art of War",                   "Sun Tzu",             "Philosophy",   6},
+        {"BK008", "Discrete Mathematics",             "Kenneth Rosen",       "Mathematics",  1},
+        {"BK009", "Operating Systems Concepts",       "Silberschatz et al.", "Computer Sci", 2},
+        {"BK010", "Database System Concepts",         "Korth & Sudarshan",   "Computer Sci", 4},
     };
 
     // ── Constructor ──────────────────────────────────────────────────────────
-    public BorrowBookPanel() {
+    public BorrowBookPanel(Member member) {
+        this.currentMember = member;
         setLayout(new BorderLayout(0, 0));
         setBackground(BG_DARK);
         setBorder(new EmptyBorder(24, 28, 24, 28));
 
-        add(buildHeader(),       BorderLayout.NORTH);
-        add(buildCenter(),       BorderLayout.CENTER);
+        add(buildHeader(),  BorderLayout.NORTH);
+        add(buildCenter(),  BorderLayout.CENTER);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -84,7 +89,6 @@ public class BorrowBookPanel extends JPanel {
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(0, 0, 18, 0));
 
-        // Title block
         JPanel titleBlock = new JPanel(new GridLayout(2, 1, 0, 2));
         titleBlock.setOpaque(false);
 
@@ -99,28 +103,27 @@ public class BorrowBookPanel extends JPanel {
         titleBlock.add(title);
         titleBlock.add(subtitle);
 
-        // Status label (right side)
         statusLabel = new JLabel(" ");
         statusLabel.setFont(FONT_SMALL);
         statusLabel.setForeground(ACCENT_GREEN);
         statusLabel.setHorizontalAlignment(SwingConstants.RIGHT);
 
-        header.add(titleBlock,   BorderLayout.WEST);
-        header.add(statusLabel,  BorderLayout.EAST);
+        header.add(titleBlock,  BorderLayout.WEST);
+        header.add(statusLabel, BorderLayout.EAST);
 
         return header;
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  CENTER  (search bar  +  table  +  borrow form)
+    //  CENTER
     // ════════════════════════════════════════════════════════════════════════
     private JPanel buildCenter() {
         JPanel center = new JPanel(new BorderLayout(0, 16));
         center.setOpaque(false);
 
-        center.add(buildSearchBar(),   BorderLayout.NORTH);
-        center.add(buildTableCard(),   BorderLayout.CENTER);
-        center.add(buildBorrowForm(),  BorderLayout.SOUTH);
+        center.add(buildSearchBar(),  BorderLayout.NORTH);
+        center.add(buildTableCard(),  BorderLayout.CENTER);
+        center.add(buildBorrowForm(), BorderLayout.SOUTH);
 
         return center;
     }
@@ -130,32 +133,27 @@ public class BorrowBookPanel extends JPanel {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         bar.setOpaque(false);
 
-        // Search field
         searchField = new JTextField(22);
         styleTextField(searchField, "Search by title or author…");
         searchField.addKeyListener(new KeyAdapter() {
             @Override public void keyReleased(KeyEvent e) { filterTable(); }
         });
 
-        // Category combo
-        String[] cats = {"All Categories","Programming","Computer Sci",
-                          "Mathematics","Physics","Chemistry","Engineering","Philosophy"};
+        String[] cats = {"All Categories", "Programming", "Computer Sci",
+                         "Mathematics", "Physics", "Chemistry", "Engineering", "Philosophy"};
         categoryFilter = new JComboBox<>(cats);
         styleComboBox(categoryFilter);
         categoryFilter.addActionListener(e -> filterTable());
 
-        // Search button
-        JButton searchBtn = styledButton("  Search", ACCENT_GREEN, BG_DARK);
-        searchBtn.addActionListener(e -> filterTable());
-
-        // Refresh button
+        JButton searchBtn  = styledButton("  Search",  ACCENT_GREEN, BG_DARK);
         JButton refreshBtn = styledButton("  Refresh", BG_CARD, TEXT_SECONDARY);
+        searchBtn.addActionListener(e -> filterTable());
         refreshBtn.addActionListener(e -> resetTable());
 
-        bar.add(new JLabel(colorLabel("Search: ", TEXT_SECONDARY)));
+        bar.add(new JLabel("Search: "));
         bar.add(searchField);
         bar.add(Box.createHorizontalStrut(6));
-        bar.add(new JLabel(colorLabel("Category: ", TEXT_SECONDARY)));
+        bar.add(new JLabel("Category: "));
         bar.add(categoryFilter);
         bar.add(Box.createHorizontalStrut(6));
         bar.add(searchBtn);
@@ -185,12 +183,10 @@ public class BorrowBookPanel extends JPanel {
         bookTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         bookTable.setFillsViewportHeight(true);
 
-        // Column widths
         int[] widths = {65, 260, 180, 120, 100};
         for (int i = 0; i < widths.length; i++)
             bookTable.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
 
-        // Header styling
         JTableHeader hdr = bookTable.getTableHeader();
         hdr.setFont(FONT_LABEL);
         hdr.setBackground(BG_CARD);
@@ -198,11 +194,9 @@ public class BorrowBookPanel extends JPanel {
         hdr.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR));
         hdr.setReorderingAllowed(false);
 
-        // Alternating rows
         bookTable.setDefaultRenderer(Object.class,  new AlternatingRowRenderer());
         bookTable.setDefaultRenderer(Integer.class, new AlternatingRowRenderer());
 
-        // Row selection → populate borrow form
         bookTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) onRowSelected();
         });
@@ -229,14 +223,12 @@ public class BorrowBookPanel extends JPanel {
         c.insets = new Insets(4, 8, 4, 8);
         c.anchor = GridBagConstraints.WEST;
 
-        // Row 0 – section title
         c.gridx = 0; c.gridy = 0; c.gridwidth = 4;
         JLabel formTitle = new JLabel("Borrow Request");
         formTitle.setFont(FONT_LABEL);
         formTitle.setForeground(ACCENT_GREEN);
         card.add(formTitle, c);
 
-        // Row 1 – Selected Book
         c.gridwidth = 1; c.gridy = 1;
         c.gridx = 0; card.add(label("Selected Book:"), c);
         c.gridx = 1; c.gridwidth = 3;
@@ -245,7 +237,6 @@ public class BorrowBookPanel extends JPanel {
         selectedBookLabel.setForeground(TEXT_SECONDARY);
         card.add(selectedBookLabel, c);
 
-        // Row 2 – Loan Duration + Return Date
         c.gridwidth = 1; c.gridy = 2;
         c.gridx = 0; card.add(label("Loan Duration:"), c);
 
@@ -259,7 +250,8 @@ public class BorrowBookPanel extends JPanel {
 
         c.gridx = 2;
         JLabel daysLbl = new JLabel("days");
-        daysLbl.setFont(FONT_BODY); daysLbl.setForeground(TEXT_SECONDARY);
+        daysLbl.setFont(FONT_BODY);
+        daysLbl.setForeground(TEXT_SECONDARY);
         card.add(daysLbl, c);
 
         c.gridx = 3;
@@ -269,7 +261,6 @@ public class BorrowBookPanel extends JPanel {
         updateReturnDate();
         card.add(returnDateLabel, c);
 
-        // Row 3 – Buttons
         c.gridy = 3; c.gridx = 0; c.gridwidth = 2;
         borrowBtn = styledButton("  Borrow Book", ACCENT_GREEN, BG_DARK);
         borrowBtn.setEnabled(false);
@@ -294,9 +285,9 @@ public class BorrowBookPanel extends JPanel {
 
         tableModel.setRowCount(0);
         for (Object[] row : SAMPLE_DATA) {
-            String title  = row[1].toString().toLowerCase();
-            String author = row[2].toString().toLowerCase();
-            String cat    = row[3].toString();
+            String  title  = row[1].toString().toLowerCase();
+            String  author = row[2].toString().toLowerCase();
+            String  cat    = row[3].toString();
             boolean matchQ = query.isEmpty() || title.contains(query) || author.contains(query);
             boolean matchC = allCats || cat.equals(category);
             if (matchQ && matchC) tableModel.addRow(row);
@@ -316,8 +307,8 @@ public class BorrowBookPanel extends JPanel {
         int row = bookTable.getSelectedRow();
         if (row < 0) { clearSelection(); return; }
 
-        String title   = tableModel.getValueAt(row, 1).toString();
-        int    avail   = (int) tableModel.getValueAt(row, 4);
+        String title = tableModel.getValueAt(row, 1).toString();
+        int    avail = (int) tableModel.getValueAt(row, 4);
 
         if (avail == 0) {
             selectedBookLabel.setText(title + "  [No copies available]");
@@ -333,7 +324,7 @@ public class BorrowBookPanel extends JPanel {
     }
 
     private void updateReturnDate() {
-        int days = (int) daysSpinner.getValue();
+        int       days       = (int) daysSpinner.getValue();
         LocalDate returnDate = LocalDate.now().plusDays(days);
         returnDateLabel.setText("Return by: " + returnDate.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")));
     }
@@ -342,18 +333,18 @@ public class BorrowBookPanel extends JPanel {
         int row = bookTable.getSelectedRow();
         if (row < 0) return;
 
-        String bookId = tableModel.getValueAt(row, 0).toString();
-        String title  = tableModel.getValueAt(row, 1).toString();
-        int    days   = (int) daysSpinner.getValue();
+        String    bookId     = tableModel.getValueAt(row, 0).toString().replaceAll("[^0-9]", "");
+        String    title      = tableModel.getValueAt(row, 1).toString();
+        int       days       = (int) daysSpinner.getValue();
         LocalDate returnDate = LocalDate.now().plusDays(days);
 
         int choice = JOptionPane.showConfirmDialog(
             this,
             "<html><body style='font-family:Segoe UI;font-size:12px;'>"
             + "<b>Confirm Borrow Request</b><br><br>"
-            + "<b>Book:</b> " + title + "<br>"
-            + "<b>Book ID:</b> " + bookId + "<br>"
-            + "<b>Loan Period:</b> " + days + " day(s)<br>"
+            + "<b>Book:</b> "        + title  + "<br>"
+            + "<b>Book ID:</b> "     + bookId + "<br>"
+            + "<b>Loan Period:</b> " + days   + " day(s)<br>"
             + "<b>Return Date:</b> " + returnDate.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy"))
             + "<br><br>Proceed with borrowing this book?"
             + "</body></html>",
@@ -363,27 +354,35 @@ public class BorrowBookPanel extends JPanel {
         );
 
         if (choice == JOptionPane.YES_OPTION) {
-            // TODO: Call controller/DAO to save borrow record in DB
-            // BorrowController.borrowBook(studentId, bookId, days);
-
-            JOptionPane.showMessageDialog(
-                this,
-                "<html><body style='font-family:Segoe UI;font-size:12px;'>"
-                + "✔ Borrow request submitted!<br>"
-                + "<b>" + title + "</b> will be ready for pick-up.<br>"
-                + "Please return on or before <b>"
-                + returnDate.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")) + "</b>."
-                + "</body></html>",
-                "Borrow Successful",
-                JOptionPane.INFORMATION_MESSAGE
+            BorrowDAO borrowDAO = new BorrowDAO();
+            boolean   success   = borrowDAO.submitBorrowRequest(
+                currentMember.getMemberID(),
+                Integer.parseInt(bookId),
+                returnDate
             );
 
-            // Refresh view
-            resetTable();
-            clearSelection();
-            statusLabel.setText("Borrow request submitted for: " + title);
+            if (success) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "<html><body style='font-family:Segoe UI;font-size:12px;'>"
+                    + "✔ Borrow request submitted!<br>"
+                    + "<b>" + title + "</b> — awaiting librarian approval.<br>"
+                    + "Preferred pickup: <b>"
+                    + returnDate.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")) + "</b>."
+                    + "</body></html>",
+                    "Request Submitted",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+                resetTable();
+                clearSelection();
+                statusLabel.setText("Borrow request submitted for: " + title);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Failed to submit borrow request. Please try again.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
-    }
+    } // ← ITO ANG KULANG SA DATI MONG CODE
 
     private void clearSelection() {
         bookTable.clearSelection();
@@ -404,7 +403,7 @@ public class BorrowBookPanel extends JPanel {
     }
 
     private String colorLabel(String text, Color color) {
-        return text; // Plain text label, color set on JLabel directly
+        return text;
     }
 
     private JLabel styledLabel(String text, Color fg) {
@@ -423,7 +422,6 @@ public class BorrowBookPanel extends JPanel {
             BorderFactory.createLineBorder(BORDER_COLOR),
             new EmptyBorder(4, 8, 4, 8)
         ));
-        // Placeholder
         tf.setText(placeholder);
         tf.setForeground(TEXT_SECONDARY);
         tf.addFocusListener(new FocusAdapter() {
@@ -467,12 +465,8 @@ public class BorrowBookPanel extends JPanel {
         ));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) {
-                btn.setBackground(bg.brighter());
-            }
-            @Override public void mouseExited(MouseEvent e) {
-                btn.setBackground(bg);
-            }
+            @Override public void mouseEntered(MouseEvent e) { btn.setBackground(bg.brighter()); }
+            @Override public void mouseExited (MouseEvent e) { btn.setBackground(bg); }
         });
         return btn;
     }
@@ -495,7 +489,6 @@ public class BorrowBookPanel extends JPanel {
                 setForeground(ACCENT_GREEN);
             } else {
                 setBackground(row % 2 == 0 ? BG_PANEL : BG_ROW_ALT);
-                // Highlight unavailable books
                 if (col == 4 && value instanceof Integer && (int) value == 0) {
                     setForeground(ACCENT_RED);
                 } else {
@@ -503,7 +496,6 @@ public class BorrowBookPanel extends JPanel {
                 }
             }
 
-            // Center numeric column
             if (col == 4) setHorizontalAlignment(SwingConstants.CENTER);
             else          setHorizontalAlignment(SwingConstants.LEFT);
 
@@ -521,7 +513,7 @@ public class BorrowBookPanel extends JPanel {
             frame.setSize(900, 640);
             frame.setLocationRelativeTo(null);
             frame.getContentPane().setBackground(new Color(13, 30, 13));
-            frame.add(new BorrowBookPanel());
+            frame.add(new BorrowBookPanel(new Member()));
             frame.setVisible(true);
         });
     }

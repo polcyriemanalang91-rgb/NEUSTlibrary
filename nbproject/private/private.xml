@@ -3,6 +3,7 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/LibrarianDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/db/DatabaseConnection.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/util/PasswordUtil.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/util/ValidationUtil.java</file>
@@ -11,11 +12,9 @@
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/MemberDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/LoginFrame.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/StudentDashboard.java</file>
-            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/LibrarianDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/ReservationDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/model/Librarian.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/LibrarianDashboard.java</file>
-            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/model/Admin.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/AdminDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/admin/AdminDashboard.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/model/Member.java</file>
@@ -34,7 +33,6 @@
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/dao/BookConditionLogDAO.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/BorrowHistoryPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/ReservationPanel.java</file>
-            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/ProfilePanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/admin/ManageCategoriesPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/admin/ManageAuthorsPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/admin/ManagePublishersPanel.java</file>
@@ -48,6 +46,10 @@
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/ManageReservationsPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/ManageMembersPanel.java</file>
             <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/BrowseBooksPanel.java</file>
+            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/BorrowBookPanel.java</file>
+            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/common/ProfilePanel.java</file>
+            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/view/librarian/AcceptBorrowRequestPanel.java</file>
+            <file>file:/C:/Users/pol/OneDrive/Documents/NetBeansProjects/NEUSTLibrarySystem/src/neustlibrarysystem/model/BorrowRequest.java</file>
         </group>
     </open-files>
 </project-private>

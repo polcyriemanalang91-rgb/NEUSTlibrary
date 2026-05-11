@@ -61,11 +61,16 @@ public class ReservationDAO {
 
     public List<Reservation> getMemberReservations(int memberID) {
         List<Reservation> list = new ArrayList<>();
-        String sql = "SELECT r.*, b.Title AS BookTitle, m.FirstName+' '+m.LastName AS MemberName, m.StudentID " +
-                     "FROM Reservation r " +
-                     "JOIN Book b ON r.BookID=b.BookID " +
-                     "JOIN Member m ON r.MemberID=m.MemberID " +
-                     "WHERE r.MemberID=? ORDER BY r.ReservedDate DESC";
+        String sql = "SELECT r.*, b.Title AS BookTitle, " +
+             "m.FirstName+' '+m.LastName AS MemberName, m.StudentID, " +
+             "STUFF((SELECT ', ' + a.FirstName+' '+a.LastName " +
+             "       FROM BookAuthor ba JOIN Author a ON ba.AuthorID=a.AuthorID " +
+             "       WHERE ba.BookID=b.BookID " +
+             "       FOR XML PATH('')), 1, 2, '') AS BookAuthors " +
+             "FROM Reservation r " +
+             "JOIN Book b ON r.BookID=b.BookID " +
+             "JOIN Member m ON r.MemberID=m.MemberID " +
+             "WHERE r.MemberID=? ORDER BY r.ReservedDate DESC";
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, memberID);
@@ -94,12 +99,12 @@ public class ReservationDAO {
     }
 
     private List<Reservation> getByStatus(String status) {
-        List<Reservation> list = new ArrayList<>();
-        String sql = "SELECT r.*, b.Title AS BookTitle, m.FirstName+' '+m.LastName AS MemberName, m.StudentID " +
-                     "FROM Reservation r " +
-                     "JOIN Book b ON r.BookID=b.BookID " +
-                     "JOIN Member m ON r.MemberID=m.MemberID " +
-                     "WHERE r.Status=? ORDER BY r.ReservedDate ASC";
+    List<Reservation> list = new ArrayList<>();
+    String sql = "SELECT r.*, b.Title AS BookTitle, m.FirstName+' '+m.LastName AS MemberName, m.StudentID " +
+                 "FROM Reservation r " +
+                 "JOIN Book b ON r.BookID=b.BookID " +
+                 "JOIN Member m ON r.MemberID=m.MemberID " +
+                 "WHERE r.Status=? ORDER BY r.ReservedDate ASC";
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, status);
@@ -126,17 +131,19 @@ public class ReservationDAO {
         return false;
     }
 
-    public boolean cancelReservation(int reservationID) {
-        String sql = "UPDATE Reservation SET Status='Cancelled' WHERE ReservationID=? AND Status IN ('Pending','Confirmed')";
-        try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, reservationID);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error cancelling reservation.", e);
-        }
-        return false;
+    public boolean cancelReservation(int reservationID, int memberID) {
+    String sql = "UPDATE Reservation SET Status='Cancelled' " +
+                 "WHERE ReservationID=? AND MemberID=? AND Status IN ('Pending','Confirmed')";
+    try (Connection con = DatabaseConnection.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+        ps.setInt(1, reservationID);
+        ps.setInt(2, memberID); // added para mas secure
+        return ps.executeUpdate() > 0;
+    } catch (SQLException e) {
+        LOGGER.log(Level.SEVERE, "Error cancelling reservation.", e);
     }
+    return false;
+}
 
     private Reservation map(ResultSet rs) throws SQLException {
         Reservation r = new Reservation();
@@ -154,6 +161,7 @@ public class ReservationDAO {
         try { r.setBookTitle  (rs.getString("BookTitle"));  } catch (SQLException ignored) {}
         try { r.setMemberName (rs.getString("MemberName")); } catch (SQLException ignored) {}
         try { r.setStudentID  (rs.getString("StudentID"));  } catch (SQLException ignored) {}
+        try { r.setBookAuthors(rs.getString("BookAuthors")); } catch (SQLException ignored) {}
         return r;
     }
 }
