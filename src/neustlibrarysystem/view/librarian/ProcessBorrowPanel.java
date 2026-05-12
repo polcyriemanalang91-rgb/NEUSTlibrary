@@ -158,16 +158,33 @@ public class ProcessBorrowPanel extends JPanel {
     }
 
     private void searchBorrows() {
-        String kw = tfSearch.getText().trim();
-        if (kw.isEmpty()) { refresh(); return; }
-        tableModel.setRowCount(0);
-        for (BorrowedRecord r : borrowDAO.searchActiveBorrows(kw))
-            tableModel.addRow(new Object[]{
-                r.getBorrowID(), r.getMemberName(), r.getStudentID(),
-                r.getBookTitle(), r.getBorrowDate(), r.getDueDate(),
-                r.getStatus(), String.format("₱%.2f", r.getFineAmount())
-            });
+    String kw = tfSearch.getText().trim();
+    if (kw.isEmpty()) { refresh(); return; }
+
+    // If pure number, filter by Borrow ID exact match
+    if (kw.matches("\\d+")) {
+        int targetID = Integer.parseInt(kw);
+        for (int r = tableModel.getRowCount() - 1; r >= 0; r--) {
+            if ((int) tableModel.getValueAt(r, 0) != targetID) {
+                tableModel.removeRow(r);
+            }
+        }
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "No borrow record found with ID: " + targetID,
+                "Not Found", JOptionPane.WARNING_MESSAGE);
+        }
+        return;
     }
+
+    // Otherwise, normal keyword search via DAO
+    tableModel.setRowCount(0);
+    for (BorrowedRecord r : borrowDAO.searchActiveBorrows(kw))
+        tableModel.addRow(new Object[]{
+            r.getBorrowID(), r.getMemberName(), r.getStudentID(),
+            r.getBookTitle(), r.getBorrowDate(), r.getDueDate(),
+            r.getStatus(), String.format("₱%.2f", r.getFineAmount())
+        });
+}
 
     private void showBorrowDialog() {
         JTextField tfBookID   = field("");

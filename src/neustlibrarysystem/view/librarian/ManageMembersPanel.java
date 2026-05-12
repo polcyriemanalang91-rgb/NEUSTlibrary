@@ -7,7 +7,10 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 
 public class ManageMembersPanel extends JPanel {
@@ -17,6 +20,7 @@ public class ManageMembersPanel extends JPanel {
     private JTable            table;
     private JTextField        tfSearch;
     private JButton           btnSearch, btnRefresh, btnView, btnToggle;
+    private TableRowSorter<DefaultTableModel> sorter;
 
     public ManageMembersPanel() {
         this.memberDAO = new MemberDAO();
@@ -49,14 +53,23 @@ public class ManageMembersPanel extends JPanel {
         tfSearch.setFont(LibrarianDashboard.FONT_BODY);
         tfSearch.setForeground(new Color(0x303c1b));
         tfSearch.setBackground(Color.WHITE);
+        tfSearch.setToolTipText("Search by Member ID, Student ID, Name, Email, or Course");
         tfSearch.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(LibrarianDashboard.CLR_ACCENT, 1, true),
             new EmptyBorder(5, 10, 5, 10)
         ));
 
+        // Press Enter to search
+        tfSearch.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) applySearch();
+            }
+        });
+
         btnSearch  = LibrarianDashboard.primaryBtn("🔍  Search");
         btnRefresh = LibrarianDashboard.accentBtn("🔄  Refresh");
-        btnSearch .addActionListener(e -> searchMembers());
+        btnSearch .addActionListener(e -> applySearch());
         btnRefresh.addActionListener(e -> { tfSearch.setText(""); refresh(); });
 
         bar.add(searchLbl); bar.add(tfSearch);
@@ -73,7 +86,11 @@ public class ManageMembersPanel extends JPanel {
         table = new JTable(tableModel);
         LibrarianDashboard.styleTable(table);
 
-        // FIX: Custom header renderer — guaranteed black text, cannot be overridden
+        // Row sorter enables client-side filtering (no extra DAO call needed)
+        sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
+
+        // Custom header renderer
         table.getTableHeader().setPreferredSize(new Dimension(0, 36));
         table.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
             @Override
@@ -93,7 +110,6 @@ public class ManageMembersPanel extends JPanel {
             }
         });
 
-        // FIX: setOpaque(true) so row colors actually paint
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
@@ -101,7 +117,9 @@ public class ManageMembersPanel extends JPanel {
                 Component comp = super.getTableCellRendererComponent(t, val, sel, foc, r, c);
                 ((JComponent) comp).setOpaque(true);
                 if (!sel) {
-                    String status = String.valueOf(tableModel.getValueAt(r, 6));
+                    // Convert view row → model row (important when filter is active)
+                    int modelRow = table.convertRowIndexToModel(r);
+                    String status = String.valueOf(tableModel.getValueAt(modelRow, 6));
                     if ("Inactive".equals(status)) {
                         comp.setBackground(new Color(0xf5e6e6));
                         comp.setForeground(new Color(0xaaaaaa));
@@ -119,7 +137,6 @@ public class ManageMembersPanel extends JPanel {
         table.getColumnModel().getColumn(5).setMaxWidth(90);
         table.getColumnModel().getColumn(6).setMaxWidth(80);
 
-        // FIX: Ensure rows are tall enough and grid is visible
         table.setRowHeight(28);
         table.setShowGrid(true);
         table.setGridColor(new Color(0xd4e6a0));
@@ -148,6 +165,18 @@ public class ManageMembersPanel extends JPanel {
         add(south, BorderLayout.SOUTH);
     }
 
+    // ── Search / Filter logic ─────────────────────────────────────────────────
+    private void applySearch() {
+        String kw = tfSearch.getText().trim();
+        if (kw.isEmpty()) {
+            sorter.setRowFilter(null);
+            return;
+        }
+        // Search across: Member ID (0), Student ID (1), Full Name (2),
+        //                Email (3), Course (4)
+        sorter.setRowFilter(RowFilter.regexFilter("(?i)" + kw, 0, 1, 2, 3, 4));
+    }
+
     // ── SWINGWORKER: refresh ──────────────────────────────────────────────────
     public void refresh() {
         setButtonsEnabled(false);
@@ -169,6 +198,8 @@ public class ManageMembersPanel extends JPanel {
                             m.isActive() ? "Active" : "Inactive"
                         });
                     }
+                    // Re-apply active search after refresh
+                    applySearch();
                 } catch (Exception e) {
                     e.printStackTrace();
                     JOptionPane.showMessageDialog(ManageMembersPanel.this,
@@ -180,43 +211,15 @@ public class ManageMembersPanel extends JPanel {
         }.execute();
     }
 
-    // ── SWINGWORKER: searchMembers ────────────────────────────────────────────
-    private void searchMembers() {
-        String kw = tfSearch.getText().trim();
-        if (kw.isEmpty()) { refresh(); return; }
-
-        setButtonsEnabled(false);
-        tableModel.setRowCount(0);
-
-        new SwingWorker<List<Member>, Void>() {
-            @Override
-            protected List<Member> doInBackground() {
-                return memberDAO.searchMembers(kw);
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    for (Member m : get()) {
-                        tableModel.addRow(new Object[]{
-                            m.getMemberID(),    m.getStudentID(), m.getFullName(),
-                            m.getEmail(),       m.getCourseProgram(), m.getYearLevel(),
-                            m.isActive() ? "Active" : "Inactive"
-                        });
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    JOptionPane.showMessageDialog(ManageMembersPanel.this,
-                        "Error searching members.", "Error", JOptionPane.ERROR_MESSAGE);
-                } finally {
-                    setButtonsEnabled(true);
-                }
-            }
-        }.execute();
+    // ── FIX: getModelRow — always convert view → model safely ────────────────
+    private int getModelRow() {
+        int viewRow = table.getSelectedRow();
+        if (viewRow < 0) return -1;
+        return table.convertRowIndexToModel(viewRow);
     }
 
     private void viewMemberDetails() {
-        int row = table.getSelectedRow();
+        int row = getModelRow();
         if (row < 0) {
             JOptionPane.showMessageDialog(this, "Select a member to view.",
                 "No Selection", JOptionPane.WARNING_MESSAGE);
@@ -240,7 +243,7 @@ public class ManageMembersPanel extends JPanel {
 
     // ── SWINGWORKER: toggleMember ─────────────────────────────────────────────
     private void toggleMember() {
-        int row = table.getSelectedRow();
+        int row = getModelRow();
         if (row < 0) {
             JOptionPane.showMessageDialog(this, "Select a member first.",
                 "No Selection", JOptionPane.WARNING_MESSAGE);

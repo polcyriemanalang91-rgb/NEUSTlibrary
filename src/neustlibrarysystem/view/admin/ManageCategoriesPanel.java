@@ -6,11 +6,14 @@ import neustlibrarysystem.model.Category;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ManageCategoriesPanel extends JPanel {
@@ -37,11 +40,12 @@ public class ManageCategoriesPanel extends JPanel {
     private JTable            categoryTable;
     private DefaultTableModel tableModel;
 
-    private JTextField txtName, txtDescription;
+    private JTextField txtName, txtDescription, txtSearch;
     private JCheckBox  chkActive;
     private JButton    btnAdd, btnUpdate, btnDelete, btnClear;
 
-    private int selectedCategoryID = -1;
+    private int            selectedCategoryID = -1;
+    private List<Category> cachedCategories   = new ArrayList<>();
 
     // ── Constructor ───────────────────────────────────────────────────────────
     public ManageCategoriesPanel(Admin currentAdmin) {
@@ -51,14 +55,23 @@ public class ManageCategoriesPanel extends JPanel {
         setBackground(CLR_BG);
         setBorder(new EmptyBorder(0, 0, 0, 0));
         buildUI();
+    }
+
+    public void refresh() {
         loadCategories();
     }
 
     // ── UI Builder ────────────────────────────────────────────────────────────
     private void buildUI() {
         add(buildHeader(), BorderLayout.NORTH);
-        add(buildTable(),  BorderLayout.CENTER);
-        add(buildForm(),   BorderLayout.SOUTH);
+
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 8));
+        centerPanel.setOpaque(false);
+        centerPanel.add(buildSearchBar(), BorderLayout.NORTH);
+        centerPanel.add(buildTable(),     BorderLayout.CENTER);
+        add(centerPanel, BorderLayout.CENTER);
+
+        add(buildForm(), BorderLayout.SOUTH);
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -85,6 +98,69 @@ public class ManageCategoriesPanel extends JPanel {
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         hdr.add(sep);
         return hdr;
+    }
+
+    // ── Search Bar ────────────────────────────────────────────────────────────
+    private JPanel buildSearchBar() {
+        JPanel panel = new JPanel(new BorderLayout(8, 0));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(6, 0, 2, 0));
+
+        JLabel searchIcon = new JLabel("🔍");
+        searchIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        searchIcon.setBorder(new EmptyBorder(0, 4, 0, 4));
+
+        txtSearch = new JTextField();
+        txtSearch.setFont(FONT_BODY);
+        txtSearch.setForeground(CLR_TEXT);
+        txtSearch.setBackground(CLR_CARD2);
+        txtSearch.setCaretColor(CLR_ACCENT);
+        txtSearch.putClientProperty("JTextField.placeholderText", "Search by ID or category name...");
+        txtSearch.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_BORDER, 1, true),
+            new EmptyBorder(7, 10, 7, 10)
+        ));
+
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e)  { filterTable(); }
+            public void removeUpdate(DocumentEvent e)  { filterTable(); }
+            public void changedUpdate(DocumentEvent e) { filterTable(); }
+        });
+
+        JButton btnClearSearch = new JButton("✕");
+        btnClearSearch.setFont(FONT_BODY);
+        btnClearSearch.setForeground(CLR_MUTED);
+        btnClearSearch.setBackground(CLR_CARD2);
+        btnClearSearch.setBorderPainted(false);
+        btnClearSearch.setFocusPainted(false);
+        btnClearSearch.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnClearSearch.addActionListener(e -> txtSearch.setText(""));
+
+        panel.add(searchIcon,     BorderLayout.WEST);
+        panel.add(txtSearch,      BorderLayout.CENTER);
+        panel.add(btnClearSearch, BorderLayout.EAST);
+        return panel;
+    }
+
+    // ── Filter Logic ──────────────────────────────────────────────────────────
+    private void filterTable() {
+        String keyword = txtSearch.getText().trim().toLowerCase();
+        tableModel.setRowCount(0);
+
+        for (Category c : cachedCategories) {
+            String name = c.getCategoryName().toLowerCase();
+            String id   = String.valueOf(c.getCategoryID());
+
+            if (keyword.isEmpty()
+                    || name.contains(keyword)
+                    || id.contains(keyword)) {
+                tableModel.addRow(new Object[]{
+                    c.getCategoryID(), c.getCategoryName(), c.getDescription(),
+                    c.isActive() ? "Yes" : "No",
+                    c.getCreatedAt() != null ? c.getCreatedAt().toLocalDate() : ""
+                });
+            }
+        }
     }
 
     // ── Table ─────────────────────────────────────────────────────────────────
@@ -293,14 +369,8 @@ public class ManageCategoriesPanel extends JPanel {
             }
             @Override protected void done() {
                 try {
-                    tableModel.setRowCount(0);
-                    for (Category c : get()) {
-                        tableModel.addRow(new Object[]{
-                            c.getCategoryID(), c.getCategoryName(), c.getDescription(),
-                            c.isActive() ? "Yes" : "No",
-                            c.getCreatedAt() != null ? c.getCreatedAt().toLocalDate() : ""
-                        });
-                    }
+                    cachedCategories = get(); // ✅ i-cache para sa filter
+                    filterTable();             // ✅ i-apply ang current search
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(ManageCategoriesPanel.this,
                         "Error loading categories: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

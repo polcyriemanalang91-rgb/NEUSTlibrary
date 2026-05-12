@@ -6,10 +6,13 @@ import neustlibrarysystem.model.Author;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ManageAuthorsPanel extends JPanel {
@@ -36,13 +39,14 @@ public class ManageAuthorsPanel extends JPanel {
     private JTable            table;
     private DefaultTableModel tableModel;
 
-    private JTextField txtFirstName, txtLastName;
+    private JTextField txtFirstName, txtLastName, txtSearch;
     private JTextArea  txtBiography;
     private JCheckBox  chkActive;
 
     private JButton btnAdd, btnUpdate, btnDelete, btnClear;
 
-    private int selectedAuthorID = -1;
+    private int          selectedAuthorID = -1;
+    private List<Author> cachedAuthors    = new ArrayList<>();
 
     // ── Constructor ───────────────────────────────────────────────────────────
     public ManageAuthorsPanel(Admin currentAdmin) {
@@ -52,14 +56,23 @@ public class ManageAuthorsPanel extends JPanel {
         setBackground(CLR_BG);
         setBorder(new EmptyBorder(0, 0, 0, 0));
         buildUI();
+    }
+
+    public void refresh() {
         loadAuthors();
     }
 
     // ── UI Builder ────────────────────────────────────────────────────────────
     private void buildUI() {
-        add(buildHeader(),  BorderLayout.NORTH);
-        add(buildTable(),   BorderLayout.CENTER);
-        add(buildForm(),    BorderLayout.SOUTH);
+        add(buildHeader(), BorderLayout.NORTH);
+
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 8));
+        centerPanel.setOpaque(false);
+        centerPanel.add(buildSearchBar(), BorderLayout.NORTH);
+        centerPanel.add(buildTable(),     BorderLayout.CENTER);
+        add(centerPanel, BorderLayout.CENTER);
+
+        add(buildForm(), BorderLayout.SOUTH);
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -86,6 +99,68 @@ public class ManageAuthorsPanel extends JPanel {
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         hdr.add(sep);
         return hdr;
+    }
+
+    // ── Search Bar ────────────────────────────────────────────────────────────
+    private JPanel buildSearchBar() {
+        JPanel panel = new JPanel(new BorderLayout(8, 0));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(6, 0, 2, 0));
+
+        JLabel searchIcon = new JLabel("🔍");
+        searchIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        searchIcon.setBorder(new EmptyBorder(0, 4, 0, 4));
+
+        txtSearch = new JTextField();
+        txtSearch.setFont(FONT_BODY);
+        txtSearch.setForeground(CLR_TEXT);
+        txtSearch.setBackground(CLR_CARD2);
+        txtSearch.setCaretColor(CLR_ACCENT);
+        txtSearch.putClientProperty("JTextField.placeholderText", "Search by ID or name...");
+        txtSearch.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_BORDER, 1, true),
+            new EmptyBorder(7, 10, 7, 10)
+        ));
+
+        txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e)  { filterTable(); }
+            public void removeUpdate(DocumentEvent e)  { filterTable(); }
+            public void changedUpdate(DocumentEvent e) { filterTable(); }
+        });
+
+        JButton btnClearSearch = new JButton("✕");
+        btnClearSearch.setFont(FONT_BODY);
+        btnClearSearch.setForeground(CLR_MUTED);
+        btnClearSearch.setBackground(CLR_CARD2);
+        btnClearSearch.setBorderPainted(false);
+        btnClearSearch.setFocusPainted(false);
+        btnClearSearch.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnClearSearch.addActionListener(e -> txtSearch.setText(""));
+
+        panel.add(searchIcon,     BorderLayout.WEST);
+        panel.add(txtSearch,      BorderLayout.CENTER);
+        panel.add(btnClearSearch, BorderLayout.EAST);
+        return panel;
+    }
+
+    // ── Filter Logic ──────────────────────────────────────────────────────────
+    private void filterTable() {
+        String keyword = txtSearch.getText().trim().toLowerCase();
+        tableModel.setRowCount(0);
+
+        for (Author a : cachedAuthors) {
+            String fullName = (a.getFirstName() + " " + a.getLastName()).toLowerCase();
+            String id       = String.valueOf(a.getAuthorID());
+
+            if (keyword.isEmpty()
+                    || fullName.contains(keyword)
+                    || id.contains(keyword)) {
+                tableModel.addRow(new Object[]{
+                    a.getAuthorID(), a.getFirstName(), a.getLastName(),
+                    a.isActive() ? "Yes" : "No", a.getCreatedAt()
+                });
+            }
+        }
     }
 
     // ── Table ─────────────────────────────────────────────────────────────────
@@ -141,8 +216,8 @@ public class ManageAuthorsPanel extends JPanel {
                     setBackground(row % 2 == 0 ? CLR_CARD : CLR_CARD2);
                     setForeground(CLR_TEXT);
                     if (val instanceof String s) {
-                        if (s.equals("Yes"))       setForeground(CLR_ACCENT);
-                        else if (s.equals("No"))   setForeground(CLR_ACCENT4);
+                        if (s.equals("Yes"))     setForeground(CLR_ACCENT);
+                        else if (s.equals("No")) setForeground(CLR_ACCENT4);
                     }
                 }
                 return this;
@@ -227,10 +302,10 @@ public class ManageAuthorsPanel extends JPanel {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         btnPanel.setOpaque(false);
 
-        btnAdd    = accentBtn("➕  Add",           new Color(0x1e4a2a));
-        btnUpdate = accentBtn("✏  Update",         new Color(0x1a3a5c));
-        btnDelete = accentBtn("🚫  Deactivate",    new Color(0x5c1a1a));
-        btnClear  = accentBtn("↺  Clear",          new Color(0x2a2a2a));
+        btnAdd    = accentBtn("➕  Add",        new Color(0x1e4a2a));
+        btnUpdate = accentBtn("✏  Update",      new Color(0x1a3a5c));
+        btnDelete = accentBtn("🚫  Deactivate", new Color(0x5c1a1a));
+        btnClear  = accentBtn("↺  Clear",       new Color(0x2a2a2a));
 
         btnAdd   .addActionListener(e -> addAuthor());
         btnUpdate.addActionListener(e -> updateAuthor());
@@ -249,7 +324,7 @@ public class ManageAuthorsPanel extends JPanel {
         return wrapper;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Field Helpers ─────────────────────────────────────────────────────────
     private JTextField darkField(int cols) {
         JTextField tf = new JTextField(cols);
         tf.setFont(FONT_BODY);
@@ -300,20 +375,20 @@ public class ManageAuthorsPanel extends JPanel {
 
     // ── Data Logic ────────────────────────────────────────────────────────────
     private void loadAuthors() {
+        setButtonsEnabled(false);
         new SwingWorker<List<Author>, Void>() {
             protected List<Author> doInBackground() throws Exception {
                 return authorDAO.getAllAuthors();
             }
             protected void done() {
                 try {
-                    tableModel.setRowCount(0);
-                    for (Author a : get()) {
-                        tableModel.addRow(new Object[]{
-                            a.getAuthorID(), a.getFirstName(), a.getLastName(),
-                            a.isActive() ? "Yes" : "No", a.getCreatedAt()
-                        });
-                    }
-                } catch (Exception e) { e.printStackTrace(); }
+                    cachedAuthors = get(); // ✅ i-cache para sa filter
+                    filterTable();         // ✅ i-apply ang current search
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    setButtonsEnabled(true);
+                }
             }
         }.execute();
     }

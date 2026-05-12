@@ -9,38 +9,50 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class BrowseBooksPanel extends JPanel {
 
-    private final Member currentMember;
-    private final BookDAO bookDAO;
+    private final Member         currentMember;
+    private final BookDAO        bookDAO;
     private final ReservationDAO reservationDAO;
 
-    private JTable table;
-    private DefaultTableModel tableModel;
-    private JTextField tfSearch;
-    private JComboBox<String> filterCombo;
+    private JTable               table;
+    private DefaultTableModel    tableModel;
+    private JTextField           tfSearch;
+    private JComboBox<String>    filterCombo;
+    private JButton              btnSearch, btnRefresh;
+    private TableRowSorter<DefaultTableModel> sorter;
 
-    private JButton btnSearch, btnRefresh;
+    // ── Column indices — must match the cols[] array in buildUI() exactly ─────
+    // Columns: "ID", "Title", "Author(s)", "Category", "Publisher", "Availability"
+    private static final int COL_ID           = 0;
+    private static final int COL_TITLE        = 1;
+    private static final int COL_AUTHORS      = 2;
+    private static final int COL_CATEGORY     = 3;
+    private static final int COL_PUBLISHER    = 4;
+    private static final int COL_AVAILABILITY = 5;
 
     public BrowseBooksPanel(Member currentMember) {
-        this.currentMember = currentMember;
-        this.bookDAO = new BookDAO();
+        this.currentMember  = currentMember;
+        this.bookDAO        = new BookDAO();
         this.reservationDAO = new ReservationDAO();
 
         setLayout(new BorderLayout());
         setBackground(new Color(0xf4fae8));
 
         buildUI();
-        loadBooks(null);
+        loadBooks();
     }
 
     private void buildUI() {
 
-        // ===== HEADER =====
+        // ── Header ────────────────────────────────────────────────────────────
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(0, 0, 14, 0));
@@ -48,27 +60,32 @@ public class BrowseBooksPanel extends JPanel {
         JLabel title = new JLabel("📚 Browse Books");
         title.setFont(new Font("Segoe UI", Font.BOLD, 20));
         title.setForeground(new Color(0x2f3e1b));
-
         header.add(title, BorderLayout.WEST);
 
         JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         searchBar.setOpaque(false);
 
         tfSearch = new JTextField(20);
+        tfSearch.setToolTipText("Search by ID, Title, Author, Category, or Publisher");
         tfSearch.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0x8aab3c), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
+            BorderFactory.createLineBorder(new Color(0x8aab3c), 1, true),
+            new EmptyBorder(5, 10, 5, 10)
         ));
+        tfSearch.addKeyListener(new KeyAdapter() {
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) applySearch();
+            }
+        });
 
-        filterCombo = new JComboBox<>(new String[]{"All", "Title", "Author", "ISBN", "Category"});
+        filterCombo = new JComboBox<>(new String[]{"All", "ID", "Title", "Author", "Category", "Publisher"});
 
-        btnSearch = new JButton("🔍 Search");
-        btnRefresh = new JButton("🔄 Refresh");
+        btnSearch  = new JButton("🔍 Search");
+        btnRefresh = new JButton("🔄 Show All");
 
-        btnSearch.addActionListener(e -> searchBooks());
+        btnSearch .addActionListener(e -> applySearch());
         btnRefresh.addActionListener(e -> {
             tfSearch.setText("");
-            loadBooks(null);
+            sorter.setRowFilter(null);
         });
 
         searchBar.add(new JLabel("Search:"));
@@ -78,12 +95,12 @@ public class BrowseBooksPanel extends JPanel {
         searchBar.add(btnRefresh);
 
         header.add(searchBar, BorderLayout.EAST);
-
         add(header, BorderLayout.NORTH);
 
-        // ===== TABLE =====
-        String[] cols = {"ID", "ISBN", "Title", "Author(s)", "Category",
-                "Publisher", "Year", "Available", "Total"};
+        // ── Table ─────────────────────────────────────────────────────────────
+        // IMPORTANT: column order here must stay in sync with COL_* constants above
+        String[] cols = {"ID", "Title", "Author(s)", "Category",
+                         "Publisher", "Availability"};
 
         tableModel = new DefaultTableModel(cols, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
@@ -92,42 +109,40 @@ public class BrowseBooksPanel extends JPanel {
         table = new JTable(tableModel);
         table.setRowHeight(28);
 
-        // HEADER STYLE (same as ManageBooks)
+        // Row sorter — enables client-side filtering
+        sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
+
+        // Header renderer
         table.getTableHeader().setPreferredSize(new Dimension(0, 36));
         table.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
-                                                           boolean sel, boolean foc, int r, int c) {
-
+                    boolean sel, boolean foc, int r, int c) {
                 JLabel lbl = new JLabel(val == null ? "" : val.toString());
                 lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
                 lbl.setForeground(Color.BLACK);
                 lbl.setBackground(new Color(0xd6eaa0));
                 lbl.setOpaque(true);
-
                 lbl.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 0, 2, 1, new Color(0x8aab3c)),
-                        BorderFactory.createEmptyBorder(4, 8, 4, 8)
+                    BorderFactory.createMatteBorder(0, 0, 2, 1, new Color(0x8aab3c)),
+                    BorderFactory.createEmptyBorder(4, 8, 4, 8)
                 ));
-
                 return lbl;
             }
         });
 
-        // ROW STYLE (alternate + soft green)
+        // Row renderer
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
-                                                           boolean sel, boolean foc, int r, int c) {
-
+                    boolean sel, boolean foc, int r, int c) {
                 Component comp = super.getTableCellRendererComponent(t, val, sel, foc, r, c);
                 ((JComponent) comp).setOpaque(true);
-
                 if (!sel) {
                     comp.setBackground(r % 2 == 0 ? Color.WHITE : new Color(0xf4fae8));
                     comp.setForeground(new Color(0x303c1b));
                 }
-
                 return comp;
             }
         });
@@ -138,51 +153,70 @@ public class BrowseBooksPanel extends JPanel {
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(new Color(0x8aab3c), 1));
         scroll.getViewport().setBackground(Color.WHITE);
-
         add(scroll, BorderLayout.CENTER);
     }
 
-    // ===== LOAD BOOKS =====
-    private void loadBooks(String keyword) {
-        List<Book> books;
+    // ── Load all books once (called only on init / refresh) ──────────────────
+    private void loadBooks() {
+        tableModel.setRowCount(0);
+        sorter.setRowFilter(null);
 
-        try {
-            if (keyword == null || keyword.isEmpty()) {
-                books = bookDAO.getAllBooks();
-            } else {
-                books = bookDAO.searchBooks(keyword);
+        new SwingWorker<List<Book>, Void>() {
+            @Override
+            protected List<Book> doInBackground() {
+                return bookDAO.getAllBooks();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+
+            @Override
+            protected void done() {
+                try {
+                    for (Book b : get()) {
+                        String authors = "";
+                        if (b.getAuthors() != null) {
+                            authors = b.getAuthors().stream()
+                                .map(a -> a.getFullName())
+                                .collect(Collectors.joining(", "));
+                        }
+                        tableModel.addRow(new Object[]{
+                            b.getBookID(),        // COL_ID           = 0
+                            b.getTitle(),         // COL_TITLE        = 1
+                            authors,              // COL_AUTHORS      = 2
+                            b.getCategoryName(),  // COL_CATEGORY     = 3
+                            b.getPublisherName(), // COL_PUBLISHER    = 4
+                            b.getAvailableCopies() + " / " + b.getTotalCopies() // COL_AVAILABILITY = 5
+                        });
+                    }
+                    // Re-apply search if user typed something before data loaded
+                    applySearch();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(BrowseBooksPanel.this,
+                        "Error loading books.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    // ── Client-side filter — no DAO call needed ───────────────────────────────
+    private void applySearch() {
+        String kw = tfSearch.getText().trim();
+        if (kw.isEmpty()) {
+            sorter.setRowFilter(null);
             return;
         }
 
-        tableModel.setRowCount(0);
-
-        for (Book b : books) {
-
-            String authors = "";
-            if (b.getAuthors() != null) {
-                authors = b.getAuthors().stream()
-                        .map(a -> a.getFullName())
-                        .collect(Collectors.joining(", "));
-            }
-
-            tableModel.addRow(new Object[]{
-                    b.getBookID(),
-                    b.getIsbn(),
-                    b.getTitle(),
-                    authors,
-                    b.getCategoryName(),
-                    b.getPublisherName(),
-                    b.getPublicationYear(),
-                    b.getAvailableCopies(),
-                    b.getTotalCopies()
-            });
+        String selected = (String) filterCombo.getSelectedItem();
+        int[] cols;
+        switch (selected == null ? "All" : selected) {
+            case "ID":        cols = new int[]{ COL_ID };         break;
+            case "Title":     cols = new int[]{ COL_TITLE };      break;
+            case "Author":    cols = new int[]{ COL_AUTHORS };    break;
+            case "Category":  cols = new int[]{ COL_CATEGORY };   break;
+            case "Publisher": cols = new int[]{ COL_PUBLISHER };  break;
+            default:          cols = new int[]{ COL_ID, COL_TITLE, COL_AUTHORS,
+                                                COL_CATEGORY, COL_PUBLISHER };
         }
-    }
 
-    private void searchBooks() {
-        loadBooks(tfSearch.getText().trim());
+        sorter.setRowFilter(RowFilter.regexFilter("(?i)" + kw, cols));
     }
 }

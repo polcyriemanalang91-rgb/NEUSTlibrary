@@ -292,25 +292,33 @@ public class AcceptBorrowRequestPanel extends JPanel {
     }
 
     private void filterTable() {
-        if (currentRequests == null) return;
-        String query  = searchField.getText().trim().toLowerCase();
-        String status = (String) statusFilter.getSelectedItem();
+    if (currentRequests == null) return;
+    String query  = searchField.getText().trim().toLowerCase();
+    String status = (String) statusFilter.getSelectedItem();
 
-        List<BorrowRequest> filtered = currentRequests.stream()
-            .filter(r -> {
-                boolean matchSearch = query.isEmpty()
-                    || (r.getMemberName() != null && r.getMemberName().toLowerCase().contains(query))
-                    || (r.getBookTitle()  != null && r.getBookTitle().toLowerCase().contains(query))
-                    || (r.getIsbn()       != null && r.getIsbn().toLowerCase().contains(query))
-                    || String.valueOf(r.getRequestId()).contains(query);
-                boolean matchStatus = "All".equals(status)
-                    || (r.getStatus() != null && r.getStatus().equalsIgnoreCase(status));
-                return matchSearch && matchStatus;
-            })
-            .toList();
+    List<BorrowRequest> filtered = currentRequests.stream()
+        .filter(r -> {
+            boolean matchSearch;
+            if (query.isEmpty()) {
+                matchSearch = true;
+            } else if (query.matches("\\d+")) {
+                // If pure number, match ONLY by exact Request ID
+                matchSearch = String.valueOf(r.getRequestId()).equals(query);
+            } else {
+                // Text search — match by name, title, ISBN
+                matchSearch =
+                    (r.getMemberName() != null && r.getMemberName().toLowerCase().contains(query))
+                    || (r.getBookTitle() != null && r.getBookTitle().toLowerCase().contains(query))
+                    || (r.getIsbn()      != null && r.getIsbn().toLowerCase().contains(query));
+            }
+            boolean matchStatus = "All".equals(status)
+                || (r.getStatus() != null && r.getStatus().equalsIgnoreCase(status));
+            return matchSearch && matchStatus;
+        })
+        .toList();
 
-        populateTable(filtered);
-    }
+    populateTable(filtered);
+}
 
     // ── Process accept/reject ─────────────────────────────────────────────────
     private void processSelected(String action) {

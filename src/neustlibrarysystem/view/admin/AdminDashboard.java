@@ -16,33 +16,40 @@ import java.util.List;
 public class AdminDashboard extends JFrame {
 
     // ── Design Tokens ─────────────────────────────────────────────────────────
-    private static final Color CLR_PRIMARY     = new Color(0x0f2027);
-    private static final Color CLR_SECONDARY   = new Color(0x1a3a2a);
+    private static final Color CLR_BG          = new Color(0x080e0a);
+    private static final Color CLR_SIDEBAR     = new Color(0x0b1410);
+    private static final Color CLR_SURFACE     = new Color(0x101a13);
+    private static final Color CLR_CARD        = new Color(0x111a14);
+    private static final Color CLR_CARD2       = new Color(0x141f17);
+    private static final Color CLR_TOPBAR      = new Color(0x080e0a);
+    private static final Color CLR_SIDEBAR_SEL = new Color(0x162019);
+    private static final Color CLR_SIDEBAR_HOV = new Color(0x111c14);
+
     private static final Color CLR_ACCENT      = new Color(0x4ade80);
     private static final Color CLR_ACCENT2     = new Color(0x22d3ee);
     private static final Color CLR_ACCENT3     = new Color(0xfbbf24);
     private static final Color CLR_ACCENT4     = new Color(0xf87171);
-    private static final Color CLR_BG          = new Color(0x0d1b12);
-    private static final Color CLR_CARD        = new Color(0x132218);
-    private static final Color CLR_CARD2       = new Color(0x1a2e1f);
-    private static final Color CLR_SIDEBAR     = new Color(0x0a1a10);
-    private static final Color CLR_SIDEBAR_SEL = new Color(0x1e3a26);
-    private static final Color CLR_SIDEBAR_HOV = new Color(0x162b1c);
-    private static final Color CLR_TOP_BAR     = new Color(0x091510);
-    private static final Color CLR_TEXT        = new Color(0xe2f5e8);
-    private static final Color CLR_MUTED       = new Color(0x6b9e7a);
-    private static final Color CLR_BORDER      = new Color(0x1f3d28);
+    private static final Color CLR_ACCENT_DIM  = new Color(0x4ade80, false);
 
-    private static final Font FONT_TITLE  = new Font("Segoe UI", Font.BOLD,  22);
-    private static final Font FONT_NAV    = new Font("Segoe UI", Font.BOLD,  13);
-    private static final Font FONT_HEADER = new Font("Segoe UI", Font.BOLD,  18);
-    private static final Font FONT_BODY   = new Font("Segoe UI", Font.PLAIN, 13);
-    private static final Font FONT_LABEL  = new Font("Segoe UI", Font.BOLD,  12);
-    private static final Font FONT_STAT   = new Font("Segoe UI", Font.BOLD,  36);
-    private static final Font FONT_SMALL  = new Font("Segoe UI", Font.PLAIN, 11);
+    private static final Color CLR_TEXT        = new Color(0xe8f5ee);
+    private static final Color CLR_MUTED       = new Color(0x5a8a6a);
+    private static final Color CLR_MUTED2      = new Color(0x3d6350);
+    private static final Color CLR_BORDER      = new Color(74, 222, 128, 25);   // rgba accent @10%
+    private static final Color CLR_BORDER2     = new Color(74, 222, 128, 46);   // rgba accent @18%
 
-    private static final int SIDEBAR_EXPANDED  = 240;
-    private static final int SIDEBAR_COLLAPSED = 62;
+    private static final Font FONT_TITLE  = new Font("DM Sans",   Font.BOLD,   20);
+    private static final Font FONT_NAV    = new Font("DM Sans",   Font.BOLD,   13);
+    private static final Font FONT_HEADER = new Font("DM Sans",   Font.BOLD,   16);
+    private static final Font FONT_BODY   = new Font("DM Sans",   Font.PLAIN,  13);
+    private static final Font FONT_LABEL  = new Font("DM Sans",   Font.BOLD,   11);
+    private static final Font FONT_STAT   = new Font("DM Mono",   Font.BOLD,   32);
+    private static final Font FONT_SMALL  = new Font("DM Sans",   Font.PLAIN,  11);
+    private static final Font FONT_MONO   = new Font("DM Mono",   Font.PLAIN,  12);
+    private static final Font FONT_TINY   = new Font("DM Sans",   Font.BOLD,    9);
+
+    private static final int SIDEBAR_EXPANDED  = 228;
+    private static final int SIDEBAR_COLLAPSED = 58;
+    private static final int CORNER            = 10;
 
     // ── State ─────────────────────────────────────────────────────────────────
     private final Admin    currentAdmin;
@@ -66,6 +73,10 @@ public class AdminDashboard extends JFrame {
     private JTextField        tfBorrowDays, tfFineRate, tfMaxBorrow;
     private JButton           btnSave;
     private JLabel            lblBooks, lblMembers, lblBorrowed, lblOverdue;
+
+    private ManageAuthorsPanel    authorsPanel;
+    private ManageCategoriesPanel categoriesPanel;
+    private ManagePublishersPanel publishersPanel;
 
     // ── Nav entry ─────────────────────────────────────────────────────────────
     private static class NavEntry {
@@ -91,22 +102,25 @@ public class AdminDashboard extends JFrame {
     private void buildUI() {
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(CLR_BG);
-        root.add(buildSidebar(), BorderLayout.WEST);
-        root.add(buildTopBar(), BorderLayout.NORTH);
+        root.add(buildSidebar(),  BorderLayout.WEST);
+        root.add(buildTopBar(),   BorderLayout.NORTH);
 
         cardLayout   = new CardLayout();
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(CLR_BG);
-        contentPanel.setBorder(new EmptyBorder(24, 28, 24, 28));
+        contentPanel.setBorder(new EmptyBorder(26, 28, 26, 28));
 
-        // ✅ Authors, Categories, Publishers now use their own panel files
-        contentPanel.add(buildDashboardPanel(),                   "DASHBOARD");
-        contentPanel.add(buildLibrariansPanel(),                  "LIBRARIANS");
-        contentPanel.add(new ManageAuthorsPanel(currentAdmin),    "AUTHORS");
-        contentPanel.add(new ManageCategoriesPanel(currentAdmin), "CATEGORIES");
-        contentPanel.add(new ManagePublishersPanel(currentAdmin), "PUBLISHERS");
-        contentPanel.add(new ReportsPanel(currentAdmin), "REPORTS");
-        contentPanel.add(buildSettingsPanel(),                    "SETTINGS");
+        authorsPanel    = new ManageAuthorsPanel(currentAdmin);
+        categoriesPanel = new ManageCategoriesPanel(currentAdmin);
+        publishersPanel = new ManagePublishersPanel(currentAdmin);
+
+        contentPanel.add(buildDashboardPanel(),         "DASHBOARD");
+        contentPanel.add(buildLibrariansPanel(),        "LIBRARIANS");
+        contentPanel.add(authorsPanel,                  "AUTHORS");
+        contentPanel.add(categoriesPanel,               "CATEGORIES");
+        contentPanel.add(publishersPanel,               "PUBLISHERS");
+        contentPanel.add(new ReportsPanel(currentAdmin),"REPORTS");
+        contentPanel.add(buildSettingsPanel(),          "SETTINGS");
 
         cardLayout.show(contentPanel, "DASHBOARD");
         root.add(contentPanel, BorderLayout.CENTER);
@@ -120,64 +134,65 @@ public class AdminDashboard extends JFrame {
         sidebar.setPreferredSize(new Dimension(SIDEBAR_EXPANDED, 0));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, CLR_BORDER));
 
-        JPanel logoArea = new GradientPanel(CLR_SIDEBAR, new Color(0x0f2018));
+        // ── Logo Zone ────────────────────────────────────────────────────────
+        JPanel logoArea = new JPanel();
+        logoArea.setBackground(CLR_SIDEBAR);
         logoArea.setLayout(new BoxLayout(logoArea, BoxLayout.Y_AXIS));
-        logoArea.setBorder(new EmptyBorder(24, 0, 20, 0));
+        logoArea.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, CLR_BORDER),
+            new EmptyBorder(20, 0, 18, 0)
+        ));
 
-        JLabel logoCircle = new JLabel("📚") {
+        JPanel logoRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        logoRow.setOpaque(false);
+
+        JLabel logoIcon = new JLabel("📚") {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(CLR_ACCENT);
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.12f));
-                g2.fillOval(0, 0, getWidth(), getHeight());
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
-                super.paintComponent(g2);
+                // subtle gradient bg
+                GradientPaint gp = new GradientPaint(0,0,
+                    new Color(74,222,128,46), getWidth(),getHeight(),
+                    new Color(34,211,238,30));
+                g2.setPaint(gp);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
+                g2.setColor(new Color(74,222,128,64));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 9, 9);
                 g2.dispose();
+                super.paintComponent(g);
             }
         };
-        logoCircle.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
-        logoCircle.setHorizontalAlignment(SwingConstants.CENTER);
-        logoCircle.setPreferredSize(new Dimension(56, 56));
-        logoCircle.setMaximumSize(new Dimension(56, 56));
-        logoCircle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        logoIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+        logoIcon.setHorizontalAlignment(SwingConstants.CENTER);
+        logoIcon.setPreferredSize(new Dimension(34, 34));
+        logoIcon.setBorder(new EmptyBorder(4, 4, 4, 4));
 
+        JPanel textStack = new JPanel();
+        textStack.setOpaque(false);
+        textStack.setLayout(new BoxLayout(textStack, BoxLayout.Y_AXIS));
         JLabel appName = new JLabel("NEUST Library");
-        appName.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        appName.setFont(new Font("DM Sans", Font.BOLD, 13));
         appName.setForeground(CLR_TEXT);
-        appName.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel appSub = new JLabel("Management System");
+        appSub.setFont(FONT_SMALL);
+        appSub.setForeground(CLR_MUTED);
+        textStack.add(appName);
+        textStack.add(appSub);
 
-        JLabel roleTag = makeTag("Admin Portal");
-
-        toggleBtn = new JButton("◀");
-        toggleBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        toggleBtn.setForeground(CLR_MUTED);
-        toggleBtn.setBackground(CLR_SIDEBAR);
-        toggleBtn.setBorderPainted(false);
-        toggleBtn.setFocusPainted(false);
-        toggleBtn.setContentAreaFilled(false);
-        toggleBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        toggleBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        toggleBtn.addActionListener(e -> toggleSidebar());
-        toggleBtn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { toggleBtn.setForeground(CLR_ACCENT); }
-            public void mouseExited(MouseEvent e)  { toggleBtn.setForeground(CLR_MUTED); }
-        });
-
-        logoArea.add(Box.createVerticalStrut(4));
-        logoArea.add(logoCircle);
+        logoRow.add(logoIcon);
+        logoRow.add(textStack);
+        logoArea.add(logoRow);
         logoArea.add(Box.createVerticalStrut(10));
-        logoArea.add(appName);
-        logoArea.add(Box.createVerticalStrut(4));
-        logoArea.add(roleTag);
-        logoArea.add(Box.createVerticalStrut(12));
-        logoArea.add(toggleBtn);
+        logoArea.add(makeRolePill("● Admin Portal"));
+
         sidebar.add(logoArea, BorderLayout.NORTH);
 
+        // ── Nav ──────────────────────────────────────────────────────────────
         JPanel nav = new JPanel();
         nav.setBackground(CLR_SIDEBAR);
         nav.setLayout(new BoxLayout(nav, BoxLayout.Y_AXIS));
-        nav.setBorder(new EmptyBorder(10, 0, 10, 0));
+        nav.setBorder(new EmptyBorder(14, 0, 14, 0));
 
         addSectionLabel(nav, "MAIN");
         addNavBtn(nav, "⊞", "Dashboard",          "DASHBOARD");
@@ -197,85 +212,163 @@ public class AdminDashboard extends JFrame {
         navScroll.setBackground(CLR_SIDEBAR);
         navScroll.getViewport().setBackground(CLR_SIDEBAR);
         navScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        navScroll.getVerticalScrollBar().setPreferredSize(new Dimension(4, 0));
+        navScroll.getVerticalScrollBar().setPreferredSize(new Dimension(2, 0));
         sidebar.add(navScroll, BorderLayout.CENTER);
 
+        // ── Footer ───────────────────────────────────────────────────────────
         JPanel bottom = new JPanel();
-        bottom.setBackground(new Color(0x091410));
+        bottom.setBackground(CLR_SIDEBAR);
         bottom.setLayout(new BoxLayout(bottom, BoxLayout.Y_AXIS));
-        bottom.setBorder(new EmptyBorder(10, 0, 10, 0));
+        bottom.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, CLR_BORDER),
+            new EmptyBorder(10, 0, 10, 0)
+        ));
 
-        JSeparator sep = new JSeparator();
-        sep.setForeground(CLR_BORDER);
-        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        bottom.add(sep);
-        bottom.add(Box.createVerticalStrut(10));
+        // User row
+        JPanel userRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 6));
+        userRow.setOpaque(false);
+        userRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+        JLabel avatar = makeAvatar(getInitials(currentAdmin.getFullName()));
+        JPanel userInfo = new JPanel();
+        userInfo.setOpaque(false);
+        userInfo.setLayout(new BoxLayout(userInfo, BoxLayout.Y_AXIS));
+        JLabel userName = new JLabel(currentAdmin.getFullName());
+        userName.setFont(new Font("DM Sans", Font.BOLD, 12));
+        userName.setForeground(CLR_TEXT);
+        userName.setName("userName");
+        JLabel userRole = new JLabel("System Administrator");
+        userRole.setFont(FONT_SMALL);
+        userRole.setForeground(CLR_MUTED);
+        userInfo.add(userName);
+        userInfo.add(userRole);
+        userRow.add(avatar);
+        userRow.add(userInfo);
+        userRow.setName("userRow");
 
-        JButton userBtn = sidebarSpecialBtn("👤", currentAdmin.getFullName(), CLR_MUTED);
-        userBtn.setName("userRow");
-        bottom.add(userBtn);
+        bottom.add(userRow);
         bottom.add(Box.createVerticalStrut(4));
 
-        JButton logoutBtn = sidebarSpecialBtn("⏻", "Logout", CLR_ACCENT4);
+        JButton logoutBtn = makeLogoutBtn();
         logoutBtn.setName("logoutBtn");
-        logoutBtn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { logoutBtn.setBackground(new Color(0x3a0f0f)); }
-            public void mouseExited(MouseEvent e)  { logoutBtn.setBackground(new Color(0, 0, 0, 0)); }
-        });
         logoutBtn.addActionListener(e -> logout());
         bottom.add(logoutBtn);
-        bottom.add(Box.createVerticalStrut(4));
+
         sidebar.add(bottom, BorderLayout.SOUTH);
+
+        // ── Toggle btn ────────────────────────────────────────────────────────
+        toggleBtn = new JButton("◀");
+        toggleBtn.setFont(new Font("DM Sans", Font.BOLD, 10));
+        toggleBtn.setForeground(CLR_MUTED);
+        toggleBtn.setBackground(CLR_SIDEBAR);
+        toggleBtn.setBorderPainted(false);
+        toggleBtn.setFocusPainted(false);
+        toggleBtn.setContentAreaFilled(false);
+        toggleBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        toggleBtn.addActionListener(e -> toggleSidebar());
+        toggleBtn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { toggleBtn.setForeground(CLR_ACCENT); }
+            public void mouseExited(MouseEvent e)  { toggleBtn.setForeground(CLR_MUTED);  }
+        });
+
         return sidebar;
     }
 
-    private void addSectionLabel(JPanel nav, String text) {
-        JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 9));
-        lbl.setForeground(new Color(0x3a6045));
-        lbl.setBorder(new EmptyBorder(14, 20, 4, 20));
-        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        lbl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-        lbl.setName("sectionLabel:" + text);
-        nav.add(lbl);
+    private JLabel makeAvatar(String initials) {
+        JLabel lbl = new JLabel(initials, SwingConstants.CENTER) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                GradientPaint gp = new GradientPaint(0,0,
+                    new Color(74,222,128,64), getWidth(),getHeight(),
+                    new Color(34,211,238,38));
+                g2.setPaint(gp);
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.setColor(new Color(74,222,128,76));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawOval(0, 0, getWidth()-1, getHeight()-1);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        lbl.setFont(new Font("DM Mono", Font.BOLD, 11));
+        lbl.setForeground(CLR_ACCENT);
+        lbl.setPreferredSize(new Dimension(28, 28));
+        return lbl;
     }
 
-    private JButton sidebarSpecialBtn(String icon, String text, Color fg) {
-        JButton btn = new JButton(icon + "  " + text);
-        btn.setFont(FONT_BODY);
-        btn.setForeground(fg);
-        btn.setBackground(new Color(0, 0, 0, 0));
+    private String getInitials(String name) {
+        if (name == null || name.isBlank()) return "AD";
+        String[] parts = name.trim().split("\\s+");
+        if (parts.length == 1) return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
+        return ("" + parts[0].charAt(0) + parts[parts.length-1].charAt(0)).toUpperCase();
+    }
+
+    private JLabel makeRolePill(String text) {
+        JLabel pill = new JLabel(text, SwingConstants.CENTER) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(74,222,128,20));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
+                g2.setColor(new Color(74,222,128,46));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, getHeight(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        pill.setFont(FONT_TINY);
+        pill.setForeground(CLR_ACCENT);
+        pill.setBorder(new EmptyBorder(4, 12, 4, 12));
+        pill.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pill.setMaximumSize(new Dimension(140, 22));
+        return pill;
+    }
+
+    private JButton makeLogoutBtn() {
+        JButton btn = new JButton("⏻  Logout") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (!getBackground().equals(CLR_SIDEBAR)) {
+                    g2.setColor(getBackground());
+                    g2.fillRoundRect(6, 2, getWidth()-12, getHeight()-4, 8, 8);
+                    g2.setColor(new Color(248,113,113,50));
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawRoundRect(6, 2, getWidth()-13, getHeight()-5, 8, 8);
+                }
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        btn.setOpaque(false);
+        btn.setFont(new Font("DM Sans", Font.BOLD, 12));
+        btn.setForeground(CLR_ACCENT4);
+        btn.setBackground(CLR_SIDEBAR);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setBorder(new EmptyBorder(8, 20, 8, 20));
         btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(248,113,113,20)); }
+            public void mouseExited(MouseEvent e)  { btn.setBackground(CLR_SIDEBAR); }
+        });
         return btn;
     }
 
-    private JLabel makeTag(String text) {
-        JLabel tag = new JLabel(text) {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(0x4ade80, false));
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
-                super.paintComponent(g2);
-                g2.dispose();
-            }
-        };
-        tag.setFont(new Font("Segoe UI", Font.BOLD, 9));
-        tag.setForeground(CLR_ACCENT);
-        tag.setHorizontalAlignment(SwingConstants.CENTER);
-        tag.setBorder(new EmptyBorder(3, 10, 3, 10));
-        tag.setAlignmentX(Component.CENTER_ALIGNMENT);
-        tag.setMaximumSize(new Dimension(120, 22));
-        return tag;
+    private void addSectionLabel(JPanel nav, String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(FONT_TINY);
+        lbl.setForeground(CLR_MUTED2);
+        lbl.setBorder(new EmptyBorder(14, 20, 5, 20));
+        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lbl.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        lbl.setName("sectionLabel:" + text);
+        nav.add(lbl);
     }
 
     private void addNavBtn(JPanel container, String icon, String text, String card) {
@@ -283,9 +376,19 @@ public class AdminDashboard extends JFrame {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                if (getBackground() != CLR_SIDEBAR) {
-                    g2.setColor(getBackground());
-                    g2.fillRoundRect(6, 2, getWidth()-12, getHeight()-4, 10, 10);
+                Color bg = getBackground();
+                if (!bg.equals(CLR_SIDEBAR)) {
+                    g2.setColor(bg);
+                    g2.fillRoundRect(6, 2, getWidth()-12, getHeight()-4, 8, 8);
+                    if (bg.equals(CLR_SIDEBAR_SEL)) {
+                        // active indicator bar
+                        g2.setColor(CLR_ACCENT);
+                        g2.fillRoundRect(6, (getHeight()-20)/2, 3, 20, 3, 3);
+                        // border
+                        g2.setColor(CLR_BORDER2);
+                        g2.setStroke(new BasicStroke(1f));
+                        g2.drawRoundRect(6, 2, getWidth()-13, getHeight()-5, 8, 8);
+                    }
                 }
                 super.paintComponent(g2);
                 g2.dispose();
@@ -299,8 +402,8 @@ public class AdminDashboard extends JFrame {
         btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setBorder(new EmptyBorder(10, 20, 10, 20));
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
+        btn.setBorder(new EmptyBorder(9, 18, 9, 18));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setName("nav");
@@ -331,12 +434,15 @@ public class AdminDashboard extends JFrame {
             btn.setForeground(CLR_ACCENT);
             activeNavBtn = btn;
             cardLayout.show(contentPanel, card);
-            if ("LIBRARIANS".equals(card)) loadLibrarians();
-            if ("SETTINGS".equals(card))   loadSettings();
+            if ("LIBRARIANS".equals(card))  loadLibrarians();
+            if ("SETTINGS".equals(card))    loadSettings();
+            if ("AUTHORS".equals(card))     authorsPanel.refresh();
+            if ("CATEGORIES".equals(card))  categoriesPanel.refresh();
+            if ("PUBLISHERS".equals(card))  publishersPanel.refresh();
         });
 
         container.add(btn);
-        container.add(Box.createVerticalStrut(2));
+        container.add(Box.createVerticalStrut(1));
     }
 
     private void toggleSidebar() {
@@ -347,29 +453,14 @@ public class AdminDashboard extends JFrame {
         for (NavEntry ne : navEntries) {
             ne.btn.setText(sidebarExpanded ? ne.iconChar + "  " + ne.text : ne.iconChar);
             ne.btn.setHorizontalAlignment(sidebarExpanded ? SwingConstants.LEFT : SwingConstants.CENTER);
-            ne.btn.setBorder(new EmptyBorder(10, sidebarExpanded ? 20 : 0, 10, sidebarExpanded ? 20 : 0));
+            ne.btn.setBorder(new EmptyBorder(9, sidebarExpanded ? 18 : 0, 9, sidebarExpanded ? 18 : 0));
         }
 
-        for (Component c : ((JScrollPane)sidebar.getComponent(1)).getViewport().getComponent(0) instanceof JPanel nav
-                ? ((JPanel)((JScrollPane)sidebar.getComponent(1)).getViewport().getComponent(0)).getComponents()
+        for (Component c : ((JScrollPane) sidebar.getComponent(1)).getViewport().getComponent(0) instanceof JPanel nav
+                ? ((JPanel) ((JScrollPane) sidebar.getComponent(1)).getViewport().getComponent(0)).getComponents()
                 : new Component[0]) {
             if (c instanceof JLabel lbl && lbl.getName() != null && lbl.getName().startsWith("sectionLabel:")) {
                 lbl.setVisible(sidebarExpanded);
-            }
-        }
-
-        JPanel bottomArea = (JPanel) sidebar.getComponent(2);
-        for (Component c : bottomArea.getComponents()) {
-            if (!(c instanceof JButton jb)) continue;
-            if ("userRow".equals(jb.getName())) {
-                jb.setText(sidebarExpanded ? "👤  " + currentAdmin.getFullName() : "👤");
-                jb.setHorizontalAlignment(sidebarExpanded ? SwingConstants.LEFT : SwingConstants.CENTER);
-                jb.setBorder(new EmptyBorder(8, sidebarExpanded ? 20 : 0, 8, sidebarExpanded ? 20 : 0));
-            }
-            if ("logoutBtn".equals(jb.getName())) {
-                jb.setText(sidebarExpanded ? "⏻  Logout" : "⏻");
-                jb.setHorizontalAlignment(sidebarExpanded ? SwingConstants.LEFT : SwingConstants.CENTER);
-                jb.setBorder(new EmptyBorder(8, sidebarExpanded ? 20 : 0, 8, sidebarExpanded ? 20 : 0));
             }
         }
 
@@ -377,7 +468,7 @@ public class AdminDashboard extends JFrame {
         sidebarTimer = new Timer(10, null);
         sidebarTimer.addActionListener(e -> {
             int w    = sidebar.getPreferredSize().width;
-            int step = (sidebarTargetWidth > w) ? 16 : -16;
+            int step = (sidebarTargetWidth > w) ? 14 : -14;
             w += step;
             boolean done = step > 0 ? w >= sidebarTargetWidth : w <= sidebarTargetWidth;
             if (done) { w = sidebarTargetWidth; sidebarTimer.stop(); }
@@ -391,94 +482,140 @@ public class AdminDashboard extends JFrame {
 
     // ── Top Bar ───────────────────────────────────────────────────────────────
     private JPanel buildTopBar() {
-        JPanel bar = new GradientPanel(CLR_TOP_BAR, new Color(0x0a1a10));
-        bar.setLayout(new BorderLayout());
-        bar.setBorder(new CompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, CLR_BORDER),
-            new EmptyBorder(14, 24, 14, 24)
-        ));
+        JPanel bar = new JPanel(new BorderLayout()) {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(CLR_BORDER);
+                g2.fillRect(0, getHeight()-1, getWidth(), 1);
+                g2.dispose();
+            }
+        };
+        bar.setBackground(CLR_TOPBAR);
+        bar.setBorder(new EmptyBorder(0, 24, 0, 24));
+        bar.setPreferredSize(new Dimension(0, 54));
 
-        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         left.setOpaque(false);
-        JLabel title = new JLabel("Library Management System");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        title.setForeground(CLR_TEXT);
-        JLabel sub = new JLabel("  —  Admin Portal");
-        sub.setFont(FONT_BODY);
-        sub.setForeground(CLR_MUTED);
-        left.add(title);
-        left.add(sub);
 
-        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JLabel pageLbl = new JLabel("Dashboard");
+        pageLbl.setFont(new Font("DM Sans", Font.BOLD, 15));
+        pageLbl.setForeground(CLR_TEXT);
+
+        JLabel sep2 = new JLabel("·");
+        sep2.setForeground(CLR_MUTED2);
+        sep2.setFont(new Font("DM Sans", Font.PLAIN, 14));
+
+        JLabel subLbl = new JLabel("Overview");
+        subLbl.setFont(FONT_BODY);
+        subLbl.setForeground(CLR_MUTED);
+
+        left.add(pageLbl);
+        left.add(sep2);
+        left.add(subLbl);
+
+        JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
         right.setOpaque(false);
+
         JLabel dateLbl = new JLabel(
             java.time.LocalDate.now().format(
-                java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy")));
-        dateLbl.setFont(FONT_SMALL);
+                java.time.format.DateTimeFormatter.ofPattern("EEE, MMM dd, yyyy")));
+        dateLbl.setFont(new Font("DM Mono", Font.PLAIN, 11));
         dateLbl.setForeground(CLR_MUTED);
-        JLabel adminBadge = new JLabel("● " + currentAdmin.getFullName());
-        adminBadge.setFont(FONT_LABEL);
+
+        // Admin badge
+        JLabel adminBadge = new JLabel("● " + currentAdmin.getFullName()) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(74,222,128,18));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
+                g2.setColor(new Color(74,222,128,38));
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, getHeight(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        adminBadge.setFont(new Font("DM Sans", Font.BOLD, 11));
         adminBadge.setForeground(CLR_ACCENT);
+        adminBadge.setBorder(new EmptyBorder(4, 12, 4, 12));
+        adminBadge.setOpaque(false);
+
         right.add(dateLbl);
         right.add(adminBadge);
 
-        bar.add(left, BorderLayout.WEST);
+        bar.add(left,  BorderLayout.WEST);
         bar.add(right, BorderLayout.EAST);
         return bar;
     }
 
     // ── Dashboard Panel ───────────────────────────────────────────────────────
     private JPanel buildDashboardPanel() {
-        JPanel p = new JPanel(new BorderLayout(0, 24));
+        JPanel p = new JPanel(new BorderLayout(0, 22));
         p.setBackground(CLR_BG);
 
+        // Header
         JPanel hdr = new JPanel(new BorderLayout());
         hdr.setOpaque(false);
-        JLabel title = new JLabel("Dashboard Overview");
-        title.setFont(FONT_TITLE);
-        title.setForeground(CLR_TEXT);
-        JLabel sub = new JLabel("Welcome back, " + currentAdmin.getFullName());
-        sub.setFont(FONT_SMALL);
-        sub.setForeground(CLR_MUTED);
         JPanel titleStack = new JPanel();
         titleStack.setOpaque(false);
         titleStack.setLayout(new BoxLayout(titleStack, BoxLayout.Y_AXIS));
+        JLabel title = new JLabel("Dashboard Overview");
+        title.setFont(FONT_TITLE);
+        title.setForeground(CLR_TEXT);
+        JLabel sub = new JLabel("Welcome back, " + currentAdmin.getFullName() + ". Here's what's happening.");
+        sub.setFont(FONT_SMALL);
+        sub.setForeground(CLR_MUTED);
         titleStack.add(title);
-        titleStack.add(Box.createVerticalStrut(2));
+        titleStack.add(Box.createVerticalStrut(3));
         titleStack.add(sub);
         hdr.add(titleStack, BorderLayout.WEST);
 
-        JButton refreshBtn = accentButton("↺  Refresh", CLR_ACCENT2);
+        JButton refreshBtn = accentButton("↺  Refresh", CLR_ACCENT2, false);
         refreshBtn.addActionListener(e -> loadDashboardStats());
         hdr.add(refreshBtn, BorderLayout.EAST);
         p.add(hdr, BorderLayout.NORTH);
 
-        JPanel statsRow = new JPanel(new GridLayout(1, 4, 16, 0));
+        // Stats row
+        JPanel statsRow = new JPanel(new GridLayout(1, 4, 14, 0));
         statsRow.setOpaque(false);
-        lblBooks    = new JLabel("—", SwingConstants.CENTER);
-        lblMembers  = new JLabel("—", SwingConstants.CENTER);
-        lblBorrowed = new JLabel("—", SwingConstants.CENTER);
-        lblOverdue  = new JLabel("—", SwingConstants.CENTER);
-        statsRow.add(dashCard("📚", "Total Books",        lblBooks,    CLR_ACCENT,  "All catalog titles"));
-        statsRow.add(dashCard("🧑‍🤝‍🧑", "Active Members",    lblMembers,  CLR_ACCENT2, "Registered users"));
-        statsRow.add(dashCard("📖", "Currently Borrowed", lblBorrowed, CLR_ACCENT3, "Books on loan"));
-        statsRow.add(dashCard("⚠",  "Overdue",            lblOverdue,  CLR_ACCENT4, "Past return date"));
+        lblBooks    = new JLabel("—", SwingConstants.LEFT);
+        lblMembers  = new JLabel("—", SwingConstants.LEFT);
+        lblBorrowed = new JLabel("—", SwingConstants.LEFT);
+        lblOverdue  = new JLabel("—", SwingConstants.LEFT);
+        statsRow.add(dashCard("📚", "Total Books",        lblBooks,    CLR_ACCENT,  "All catalog titles",   "↑ catalog"));
+        statsRow.add(dashCard("🧑‍🤝‍🧑", "Active Members",   lblMembers,  CLR_ACCENT2, "Registered users",     "↑ registered"));
+        statsRow.add(dashCard("📖", "Currently Borrowed", lblBorrowed, CLR_ACCENT3, "Books on loan",        "on loan now"));
+        statsRow.add(dashCard("⚠",  "Overdue",            lblOverdue,  CLR_ACCENT4, "Past return date",     "past due"));
 
-        JPanel qa = new JPanel(new BorderLayout(0, 12));
+        // Quick Actions
+        JPanel qa = new JPanel(new BorderLayout(0, 14));
         qa.setOpaque(false);
+
+        JPanel qaHdrRow = new JPanel(new BorderLayout());
+        qaHdrRow.setOpaque(false);
         JLabel qaHdr = new JLabel("Quick Actions");
-        qaHdr.setFont(FONT_HEADER);
+        qaHdr.setFont(new Font("DM Sans", Font.BOLD, 14));
         qaHdr.setForeground(CLR_TEXT);
-        qa.add(qaHdr, BorderLayout.NORTH);
+        JSeparator qaSep = new JSeparator();
+        qaSep.setForeground(CLR_BORDER);
+        // wrap in panel to align
+        JPanel qaHdrWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        qaHdrWrap.setOpaque(false);
+        qaHdrWrap.add(qaHdr);
+        qaHdrRow.add(qaHdrWrap, BorderLayout.WEST);
+        qaHdrRow.add(qaSep, BorderLayout.CENTER);
+        qa.add(qaHdrRow, BorderLayout.NORTH);
 
         JPanel btnGrid = new JPanel(new GridLayout(2, 3, 12, 12));
         btnGrid.setOpaque(false);
-        btnGrid.add(quickActionBtn("👥", "Add Librarian",     CLR_ACCENT,  () -> { cardLayout.show(contentPanel,"LIBRARIANS"); activateNav("LIBRARIANS"); }));
-        btnGrid.add(quickActionBtn("📊", "View Reports",      CLR_ACCENT2, () -> { cardLayout.show(contentPanel,"REPORTS");    activateNav("REPORTS"); }));
-        btnGrid.add(quickActionBtn("⚙",  "System Settings",  CLR_ACCENT3, () -> { cardLayout.show(contentPanel,"SETTINGS");   activateNav("SETTINGS"); }));
-        btnGrid.add(quickActionBtn("✍",  "Manage Authors",   CLR_ACCENT,  () -> { cardLayout.show(contentPanel,"AUTHORS");    activateNav("AUTHORS"); }));
-        btnGrid.add(quickActionBtn("🏷",  "Manage Categories",CLR_ACCENT2, () -> { cardLayout.show(contentPanel,"CATEGORIES");activateNav("CATEGORIES"); }));
-        btnGrid.add(quickActionBtn("🏢",  "Manage Publishers",CLR_ACCENT3, () -> { cardLayout.show(contentPanel,"PUBLISHERS");activateNav("PUBLISHERS"); }));
+        btnGrid.add(quickActionBtn("👥", "Add Librarian",      "Manage accounts",  CLR_ACCENT,  () -> { cardLayout.show(contentPanel,"LIBRARIANS"); activateNav("LIBRARIANS"); }));
+        btnGrid.add(quickActionBtn("📊", "View Reports",       "Analytics & logs", CLR_ACCENT2, () -> { cardLayout.show(contentPanel,"REPORTS");    activateNav("REPORTS"); }));
+        btnGrid.add(quickActionBtn("⚙",  "System Settings",   "Config & fines",   CLR_ACCENT3, () -> { cardLayout.show(contentPanel,"SETTINGS");   activateNav("SETTINGS"); }));
+        btnGrid.add(quickActionBtn("✍",  "Manage Authors",    "Catalog entries",  CLR_ACCENT,  () -> { cardLayout.show(contentPanel,"AUTHORS");    activateNav("AUTHORS"); }));
+        btnGrid.add(quickActionBtn("🏷",  "Manage Categories", "Book tagging",     CLR_ACCENT2, () -> { cardLayout.show(contentPanel,"CATEGORIES");activateNav("CATEGORIES"); }));
+        btnGrid.add(quickActionBtn("🏢",  "Manage Publishers", "Publisher records",CLR_ACCENT3, () -> { cardLayout.show(contentPanel,"PUBLISHERS");activateNav("PUBLISHERS"); }));
         qa.add(btnGrid, BorderLayout.CENTER);
 
         JPanel center = new JPanel(new BorderLayout(0, 20));
@@ -504,73 +641,124 @@ public class AdminDashboard extends JFrame {
         }
     }
 
-    private JPanel dashCard(String emoji, String title, JLabel valLbl, Color accent, String subtitle) {
-        JPanel card = new JPanel(new BorderLayout(0, 8)) {
+    private JPanel dashCard(String emoji, String title, JLabel valLbl, Color accent, String subtitle, String hint) {
+        JPanel card = new JPanel(new BorderLayout(0, 10)) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(CLR_CARD);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                // top accent bar
                 g2.setColor(accent);
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.08f));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
-                g2.setColor(accent);
-                g2.setStroke(new BasicStroke(2f));
-                g2.drawRoundRect(1, 1, getWidth()-2, getHeight()-2, 14, 14);
+                g2.fillRoundRect(0, 0, getWidth(), 3, 3, 3);
+                // border
+                g2.setColor(CLR_BORDER);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 12, 12);
                 g2.dispose();
             }
         };
         card.setOpaque(false);
-        card.setBorder(new EmptyBorder(20, 20, 20, 20));
+        card.setBorder(new EmptyBorder(18, 20, 18, 20));
 
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
-        JLabel emojiLbl = new JLabel(emoji);
-        emojiLbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
-        JLabel subLbl = new JLabel(subtitle);
-        subLbl.setFont(FONT_SMALL);
-        subLbl.setForeground(CLR_MUTED);
-        top.add(emojiLbl, BorderLayout.WEST);
-        top.add(subLbl, BorderLayout.EAST);
+
+        // icon badge
+        JLabel iconBadge = new JLabel(emoji, SwingConstants.CENTER) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 30));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        iconBadge.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        iconBadge.setPreferredSize(new Dimension(30, 30));
+
+        JLabel labelLbl = new JLabel(title.toUpperCase());
+        labelLbl.setFont(FONT_TINY);
+        labelLbl.setForeground(CLR_MUTED);
+
+        top.add(labelLbl,  BorderLayout.WEST);
+        top.add(iconBadge, BorderLayout.EAST);
 
         valLbl.setFont(FONT_STAT);
         valLbl.setForeground(CLR_TEXT);
 
-        JLabel titleLbl = new JLabel(title);
-        titleLbl.setFont(FONT_LABEL);
-        titleLbl.setForeground(CLR_MUTED);
+        JLabel hintLbl = new JLabel(hint);
+        hintLbl.setFont(new Font("DM Sans", Font.PLAIN, 10));
+        hintLbl.setForeground(CLR_MUTED);
 
-        card.add(top, BorderLayout.NORTH);
-        card.add(valLbl, BorderLayout.CENTER);
-        card.add(titleLbl, BorderLayout.SOUTH);
+        card.add(top,     BorderLayout.NORTH);
+        card.add(valLbl,  BorderLayout.CENTER);
+        card.add(hintLbl, BorderLayout.SOUTH);
         return card;
     }
 
-    private JButton quickActionBtn(String emoji, String text, Color accent, Runnable action) {
-        JButton btn = new JButton(emoji + "  " + text) {
+    private JButton quickActionBtn(String emoji, String text, String sub, Color accent, Runnable action) {
+        JButton btn = new JButton() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(isEnabled() ? getBackground() : CLR_CARD);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
-                super.paintComponent(g2);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                // border
+                g2.setColor(CLR_BORDER);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 10, 10);
                 g2.dispose();
+                super.paintComponent(g);
             }
         };
+        btn.setLayout(new FlowLayout(FlowLayout.LEFT, 14, 0));
         btn.setOpaque(false);
-        btn.setFont(FONT_BODY);
-        btn.setForeground(CLR_TEXT);
         btn.setBackground(CLR_CARD2);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+        // icon badge
+        JLabel iconLbl = new JLabel(emoji, SwingConstants.CENTER) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 26));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        iconLbl.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+        iconLbl.setPreferredSize(new Dimension(36, 36));
+
+        JPanel stack = new JPanel();
+        stack.setOpaque(false);
+        stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+        JLabel mainLbl = new JLabel(text);
+        mainLbl.setFont(new Font("DM Sans", Font.BOLD, 12));
+        mainLbl.setForeground(CLR_TEXT);
+        JLabel subLbl = new JLabel(sub);
+        subLbl.setFont(new Font("DM Sans", Font.PLAIN, 10));
+        subLbl.setForeground(CLR_MUTED);
+        stack.add(mainLbl);
+        stack.add(subLbl);
+
+        btn.add(iconLbl);
+        btn.add(stack);
+
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setBackground(accent); btn.setForeground(Color.WHITE); }
-            public void mouseExited(MouseEvent e)  { btn.setBackground(CLR_CARD2); btn.setForeground(CLR_TEXT); }
+            public void mouseEntered(MouseEvent e) {
+                btn.setBackground(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 13));
+                btn.repaint();
+            }
+            public void mouseExited(MouseEvent e) {
+                btn.setBackground(CLR_CARD2);
+                btn.repaint();
+            }
         });
         btn.addActionListener(e -> action.run());
         return btn;
@@ -591,10 +779,10 @@ public class AdminDashboard extends JFrame {
         libTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         p.add(styledScrollPane(libTable), BorderLayout.CENTER);
 
-        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         btnRow.setOpaque(false);
-        btnAdd    = accentButton("＋  Add Librarian", CLR_ACCENT);
-        btnToggle = accentButton("⇄  Toggle Status",  CLR_ACCENT2);
+        btnAdd    = accentButton("＋  Add Librarian", CLR_ACCENT,  false);
+        btnToggle = accentButton("⇄  Toggle Status",  CLR_ACCENT2, true);
         btnAdd   .addActionListener(e -> showAddLibrarianDialog());
         btnToggle.addActionListener(e -> toggleLibrarianStatus());
         btnRow.add(btnAdd);
@@ -602,6 +790,7 @@ public class AdminDashboard extends JFrame {
         p.add(btnRow, BorderLayout.SOUTH);
         return p;
     }
+
     // ── Settings Panel ────────────────────────────────────────────────────────
     private JPanel buildSettingsPanel() {
         JPanel outer = new JPanel(new BorderLayout(0, 16));
@@ -613,18 +802,19 @@ public class AdminDashboard extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(CLR_CARD);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
                 g2.setColor(CLR_BORDER);
-                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 16, 16);
+                g2.setStroke(new BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 14, 14);
                 g2.dispose();
             }
         };
         card.setOpaque(false);
-        card.setBorder(new EmptyBorder(28, 36, 28, 36));
+        card.setBorder(new EmptyBorder(30, 38, 30, 38));
 
         GridBagConstraints gc = new GridBagConstraints();
         gc.fill = GridBagConstraints.HORIZONTAL;
-        gc.insets = new Insets(10, 0, 10, 0);
+        gc.insets = new Insets(8, 0, 8, 0);
         gc.gridwidth = GridBagConstraints.REMAINDER;
 
         JLabel hdr = new JLabel("Borrowing & Fine Configuration");
@@ -636,13 +826,13 @@ public class AdminDashboard extends JFrame {
         sep.setForeground(CLR_BORDER);
         card.add(sep, gc);
 
-        gc.insets = new Insets(8, 0, 8, 0);
+        gc.insets = new Insets(10, 0, 10, 0);
         tfBorrowDays = addSettingRow(card, gc, "📅  Max Borrow Days",      "days");
         tfFineRate   = addSettingRow(card, gc, "💰  Fine Rate per Day",    "₱ per day");
         tfMaxBorrow  = addSettingRow(card, gc, "📚  Max Books per Member", "books");
 
-        gc.insets = new Insets(20, 0, 0, 0);
-        btnSave = accentButton("💾  Save Settings", CLR_ACCENT);
+        gc.insets = new Insets(22, 0, 0, 0);
+        btnSave = accentButton("💾  Save Settings", CLR_ACCENT, false);
         btnSave.addActionListener(e -> saveSettings());
         card.add(btnSave, gc);
 
@@ -656,19 +846,19 @@ public class AdminDashboard extends JFrame {
     private JTextField addSettingRow(JPanel panel, GridBagConstraints gc, String label, String hint) {
         gc.gridwidth = 1; gc.weightx = 0.45;
         JLabel lbl = new JLabel(label);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lbl.setFont(new Font("DM Sans", Font.BOLD, 13));
         lbl.setForeground(CLR_TEXT);
         panel.add(lbl, gc);
 
         gc.weightx = 0.55; gc.gridwidth = GridBagConstraints.REMAINDER;
         JTextField tf = new JTextField(14);
-        tf.setFont(FONT_BODY);
+        tf.setFont(new Font("DM Mono", Font.PLAIN, 13));
         tf.setForeground(CLR_TEXT);
         tf.setBackground(CLR_CARD2);
         tf.setCaretColor(CLR_ACCENT);
         tf.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(CLR_BORDER, 1, true),
-            new EmptyBorder(8, 12, 8, 12)
+            BorderFactory.createLineBorder(CLR_BORDER2, 1, true),
+            new EmptyBorder(9, 14, 9, 14)
         ));
         panel.add(tf, gc);
         return tf;
@@ -688,7 +878,7 @@ public class AdminDashboard extends JFrame {
         hdr.add(t);
         hdr.add(Box.createVerticalStrut(3));
         hdr.add(s);
-        hdr.add(Box.createVerticalStrut(6));
+        hdr.add(Box.createVerticalStrut(8));
         JSeparator sep = new JSeparator();
         sep.setForeground(CLR_BORDER);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
@@ -696,21 +886,30 @@ public class AdminDashboard extends JFrame {
         return hdr;
     }
 
-    private JButton accentButton(String text, Color accent) {
+    /** @param outline true = outlined style, false = filled */
+    private JButton accentButton(String text, Color accent, boolean outline) {
         JButton btn = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(isEnabled() ? getBackground() : CLR_CARD);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                if (outline) {
+                    g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 20));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
+                    g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 80));
+                    g2.setStroke(new BasicStroke(1f));
+                    g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 9, 9);
+                } else {
+                    g2.setColor(isEnabled() ? getBackground() : CLR_CARD);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 9, 9);
+                }
                 super.paintComponent(g2);
                 g2.dispose();
             }
         };
         btn.setOpaque(false);
-        btn.setFont(FONT_BODY);
-        btn.setForeground(Color.WHITE);
-        btn.setBackground(accent);
+        btn.setFont(new Font("DM Sans", Font.BOLD, 12));
+        btn.setForeground(outline ? accent : Color.WHITE);
+        btn.setBackground(outline ? CLR_CARD2 : accent);
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setContentAreaFilled(false);
@@ -718,8 +917,14 @@ public class AdminDashboard extends JFrame {
         btn.setBorder(new EmptyBorder(9, 18, 9, 18));
         Color darker = accent.darker();
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { if (btn.isEnabled()) btn.setBackground(darker); }
-            public void mouseExited(MouseEvent e)  { if (btn.isEnabled()) btn.setBackground(accent); }
+            public void mouseEntered(MouseEvent e) {
+                if (!btn.isEnabled()) return;
+                btn.setBackground(outline ? new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 35) : darker);
+            }
+            public void mouseExited(MouseEvent e) {
+                if (!btn.isEnabled()) return;
+                btn.setBackground(outline ? CLR_CARD2 : accent);
+            }
         });
         return btn;
     }
@@ -739,61 +944,54 @@ public class AdminDashboard extends JFrame {
         sp.getViewport().setOpaque(false);
         sp.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
         sp.getVerticalScrollBar().setBackground(CLR_CARD);
+        sp.getVerticalScrollBar().setPreferredSize(new Dimension(4, 0));
         return sp;
     }
 
     private static void styleTable(JTable table) {
-        table.setFont(FONT_BODY);
+        table.setFont(new Font("DM Mono", Font.PLAIN, 12));
         table.setForeground(CLR_TEXT);
         table.setBackground(CLR_CARD);
-        table.setRowHeight(34);
-        table.setSelectionBackground(new Color(0x4ade80, false).darker());
-        table.setSelectionForeground(Color.WHITE);
-        table.setGridColor(CLR_BORDER);
+        table.setRowHeight(36);
+        table.setSelectionBackground(new Color(74, 222, 128, 30));
+        table.setSelectionForeground(CLR_ACCENT);
+        table.setGridColor(new Color(74, 222, 128, 13));
         table.setShowVerticalLines(false);
         table.setIntercellSpacing(new Dimension(0, 1));
 
         JTableHeader h = table.getTableHeader();
-        h.setFont(FONT_LABEL);
-        h.setBackground(new Color(0x0a1a10));
+        h.setFont(new Font("DM Sans", Font.BOLD, 10));
+        h.setBackground(new Color(0x080e0a));
         h.setForeground(CLR_ACCENT);
         h.setReorderingAllowed(false);
-        h.setPreferredSize(new Dimension(0, 40));
-        h.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, CLR_ACCENT));
+        h.setPreferredSize(new Dimension(0, 38));
+        h.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, CLR_BORDER2));
 
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(
                     JTable t, Object val, boolean sel, boolean foc, int row, int col) {
                 super.getTableCellRendererComponent(t, val, sel, foc, row, col);
-                setFont(FONT_BODY);
-                setBorder(new EmptyBorder(0, 10, 0, 10));
+                setFont(new Font("DM Mono", Font.PLAIN, 12));
+                setBorder(new EmptyBorder(0, 14, 0, 14));
                 if (sel) {
-                    setBackground(new Color(0x1e4a2a));
+                    setBackground(new Color(74, 222, 128, 28));
                     setForeground(CLR_ACCENT);
                 } else {
                     setBackground(row % 2 == 0 ? CLR_CARD : CLR_CARD2);
                     setForeground(CLR_TEXT);
                 }
                 if (val instanceof String s) {
-                    if (s.equals("Active"))        setForeground(CLR_ACCENT);
-                    else if (s.equals("Inactive")) setForeground(CLR_ACCENT4);
+                    if (s.equals("Active")) {
+                        setForeground(CLR_ACCENT);
+                        setText("● " + s);
+                    } else if (s.equals("Inactive")) {
+                        setForeground(CLR_ACCENT4);
+                        setText("● " + s);
+                    }
                 }
                 return this;
             }
         });
-    }
-
-    // ── Gradient Panel ────────────────────────────────────────────────────────
-    private static class GradientPanel extends JPanel {
-        private final Color c1, c2;
-        GradientPanel(Color c1, Color c2) { this.c1=c1; this.c2=c2; setOpaque(false); }
-        @Override protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setPaint(new GradientPaint(0, 0, c1, getWidth(), getHeight(), c2));
-            g2.fillRect(0, 0, getWidth(), getHeight());
-            g2.dispose();
-            super.paintComponent(g);
-        }
     }
 
     // ── Data Loaders ──────────────────────────────────────────────────────────
@@ -805,10 +1003,10 @@ public class AdminDashboard extends JFrame {
             @Override protected void done() {
                 try {
                     int[] s = get();
-                    lblBooks.setText(String.valueOf(s[0]));
-                    lblMembers.setText(String.valueOf(s[1]));
+                    lblBooks   .setText(String.valueOf(s[0]));
+                    lblMembers .setText(String.valueOf(s[1]));
                     lblBorrowed.setText(String.valueOf(s[2]));
-                    lblOverdue.setText(String.valueOf(s[3]));
+                    lblOverdue .setText(String.valueOf(s[3]));
                 } catch (Exception ex) {
                     lblBooks.setText("!"); lblMembers.setText("!");
                     lblBorrowed.setText("!"); lblOverdue.setText("!");
@@ -877,7 +1075,7 @@ public class AdminDashboard extends JFrame {
     // ── Actions ───────────────────────────────────────────────────────────────
     private void showAddLibrarianDialog() {
         JPanel dlg = new JPanel(new GridLayout(6, 2, 10, 10));
-        dlg.setBorder(new EmptyBorder(10, 10, 10, 10));
+        dlg.setBorder(new EmptyBorder(12, 12, 12, 12));
         dlg.setBackground(CLR_CARD);
 
         JTextField     tfEmpID   = darkField();
@@ -916,7 +1114,7 @@ public class AdminDashboard extends JFrame {
                 @Override protected Boolean doInBackground() { return adminDAO.addLibrarian(lib, pass); }
                 @Override protected void done() {
                     try {
-                        if (get()) { JOptionPane.showMessageDialog(AdminDashboard.this, "Librarian added."); loadLibrarians(); }
+                        if (get()) { JOptionPane.showMessageDialog(AdminDashboard.this, "Librarian added successfully."); loadLibrarians(); }
                         else JOptionPane.showMessageDialog(AdminDashboard.this, "Failed to add librarian.", "Error", JOptionPane.ERROR_MESSAGE);
                     } catch (Exception ex) {
                         JOptionPane.showMessageDialog(AdminDashboard.this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -928,10 +1126,10 @@ public class AdminDashboard extends JFrame {
 
     private void toggleLibrarianStatus() {
         int row = libTable.getSelectedRow();
-        if (row < 0) { JOptionPane.showMessageDialog(this, "Select a librarian first."); return; }
+        if (row < 0) { JOptionPane.showMessageDialog(this, "Please select a librarian first."); return; }
         int     id       = (int)    libTableModel.getValueAt(row, 0);
         String  status   = (String) libTableModel.getValueAt(row, 5);
-        boolean isActive = "Active".equals(status);
+        boolean isActive = status.contains("Active") && !status.contains("Inactive");
 
         int confirm = JOptionPane.showConfirmDialog(this,
             "Are you sure you want to " + (isActive ? "deactivate" : "activate") + " this librarian?",
@@ -972,8 +1170,10 @@ public class AdminDashboard extends JFrame {
             @Override protected void done() {
                 try {
                     boolean[] r = get();
-                    if (r[0] && r[1] && r[2]) JOptionPane.showMessageDialog(AdminDashboard.this, "Settings saved successfully.");
-                    else JOptionPane.showMessageDialog(AdminDashboard.this, "Some settings failed to save.", "Warning", JOptionPane.WARNING_MESSAGE);
+                    if (r[0] && r[1] && r[2])
+                        JOptionPane.showMessageDialog(AdminDashboard.this, "Settings saved successfully.");
+                    else
+                        JOptionPane.showMessageDialog(AdminDashboard.this, "Some settings failed to save.", "Warning", JOptionPane.WARNING_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(AdminDashboard.this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 } finally { btnSave.setEnabled(true); btnSave.setText("💾  Save Settings"); }
@@ -998,19 +1198,19 @@ public class AdminDashboard extends JFrame {
     }
 
     private void styleField(JTextField tf) {
-        tf.setFont(FONT_BODY);
+        tf.setFont(new Font("DM Mono", Font.PLAIN, 12));
         tf.setForeground(CLR_TEXT);
         tf.setBackground(CLR_CARD2);
         tf.setCaretColor(CLR_ACCENT);
         tf.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(CLR_BORDER, 1),
-            new EmptyBorder(6, 10, 6, 10)
+            BorderFactory.createLineBorder(CLR_BORDER2, 1),
+            new EmptyBorder(7, 12, 7, 12)
         ));
     }
 
     private static JLabel styledLabel(String text) {
         JLabel lbl = new JLabel(text);
-        lbl.setFont(FONT_LABEL);
+        lbl.setFont(new Font("DM Sans", Font.BOLD, 12));
         lbl.setForeground(CLR_TEXT);
         return lbl;
     }

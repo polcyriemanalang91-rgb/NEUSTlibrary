@@ -7,9 +7,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class DatabaseConnection {
-
     private static final Logger LOGGER = Logger.getLogger(DatabaseConnection.class.getName());
-
     private static final String URL =
         "jdbc:sqlserver://localhost\\SQLEXPRESS"
         + ";databaseName=NEUSTLibraryDB"
@@ -17,15 +15,14 @@ public class DatabaseConnection {
         + ";encrypt=false"
         + ";trustServerCertificate=true";
 
-    // ✅ FIXED: password updated to match ALTER LOGIN command
     private static final String USER     = "sa";
     private static final String PASSWORD = "sa123";
-
-    private static Connection connection = null;
+    
+    private static volatile Connection connection = null;
 
     private DatabaseConnection() {}
 
-    public static Connection getConnection() {
+    public static synchronized Connection getConnection() {
         try {
             if (connection == null || connection.isClosed()) {
                 Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
@@ -40,7 +37,7 @@ public class DatabaseConnection {
         return connection;
     }
 
-    public static void closeConnection() {
+    public static synchronized void closeConnection() {
         if (connection != null) {
             try {
                 connection.close();

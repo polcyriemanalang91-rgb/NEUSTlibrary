@@ -8,7 +8,10 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 
 public class ManageReservationsPanel extends JPanel {
@@ -17,7 +20,9 @@ public class ManageReservationsPanel extends JPanel {
     private final Librarian      librarian;
     private DefaultTableModel    tableModel;
     private JTable               table;
-    private JButton              btnRefresh, btnCancel, btnConfirm;
+    private JButton              btnRefresh, btnCancel, btnConfirm, btnSearch;
+    private JTextField           txtSearch;
+    private TableRowSorter<DefaultTableModel> sorter;
 
     public ManageReservationsPanel(Librarian librarian) {
         this.librarian = librarian;
@@ -46,6 +51,46 @@ public class ManageReservationsPanel extends JPanel {
         header.add(hint, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
+        // ── Search Bar ────────────────────────────────────────────────────────
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 6));
+        searchPanel.setOpaque(false);
+
+        JLabel lblSearch = new JLabel("🔍  Search:");
+        lblSearch.setFont(LibrarianDashboard.FONT_LABEL);
+        lblSearch.setForeground(new Color(0x303c1b));
+
+        txtSearch = new JTextField(28);
+        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        txtSearch.setToolTipText("Search by Reservation ID, Member Name, Student ID, or Book Title");
+        txtSearch.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0x8aab3c), 1),
+            BorderFactory.createEmptyBorder(4, 8, 4, 8)
+        ));
+
+        // Press Enter to search
+        txtSearch.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    applySearch();
+                }
+            }
+        });
+
+        btnSearch = LibrarianDashboard.accentBtn("🔍  Search");
+        btnSearch.addActionListener(e -> applySearch());
+
+        JButton btnClear = LibrarianDashboard.accentBtn("✖  Clear");
+        btnClear.addActionListener(e -> {
+            txtSearch.setText("");
+            applySearch();
+        });
+
+        searchPanel.add(lblSearch);
+        searchPanel.add(txtSearch);
+        searchPanel.add(btnSearch);
+        searchPanel.add(btnClear);
+
         // ── Table ─────────────────────────────────────────────────────────────
         String[] cols = {"Res. ID", "Member", "Student ID", "Book Title",
                          "Reserved Date", "Expiry Date", "Status"};
@@ -55,7 +100,11 @@ public class ManageReservationsPanel extends JPanel {
         table = new JTable(tableModel);
         LibrarianDashboard.styleTable(table);
 
-        // FIX: Custom header renderer — guaranteed black text, cannot be overridden
+        // Row sorter enables filtering
+        sorter = new TableRowSorter<>(tableModel);
+        table.setRowSorter(sorter);
+
+        // Custom header renderer
         table.getTableHeader().setPreferredSize(new Dimension(0, 36));
         table.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
             @Override
@@ -75,7 +124,6 @@ public class ManageReservationsPanel extends JPanel {
             }
         });
 
-        // FIX: setOpaque(true) so row colors actually paint
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
@@ -83,7 +131,9 @@ public class ManageReservationsPanel extends JPanel {
                 Component comp = super.getTableCellRendererComponent(t, val, sel, foc, r, c);
                 ((JComponent) comp).setOpaque(true);
                 if (!sel) {
-                    String status = String.valueOf(tableModel.getValueAt(r, 6));
+                    // Convert view row to model row because of filtering
+                    int modelRow = table.convertRowIndexToModel(r);
+                    String status = String.valueOf(tableModel.getValueAt(modelRow, 6));
                     switch (status) {
                         case "Confirmed":
                             comp.setBackground(new Color(0xe8f8e8));
@@ -107,7 +157,6 @@ public class ManageReservationsPanel extends JPanel {
         table.getColumnModel().getColumn(2).setMaxWidth(110);
         table.getColumnModel().getColumn(6).setMaxWidth(100);
 
-        // FIX: Ensure rows are tall enough and grid is visible
         table.setRowHeight(28);
         table.setShowGrid(true);
         table.setGridColor(new Color(0xd4e6a0));
@@ -115,7 +164,13 @@ public class ManageReservationsPanel extends JPanel {
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createLineBorder(LibrarianDashboard.CLR_ACCENT, 1));
         scroll.getViewport().setBackground(Color.WHITE);
-        add(scroll, BorderLayout.CENTER);
+
+        // ── Center: search + table stacked ───────────────────────────────────
+        JPanel center = new JPanel(new BorderLayout(0, 4));
+        center.setOpaque(false);
+        center.add(searchPanel, BorderLayout.NORTH);
+        center.add(scroll, BorderLayout.CENTER);
+        add(center, BorderLayout.CENTER);
 
         // ── Action bar ────────────────────────────────────────────────────────
         JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 10));
@@ -133,6 +188,20 @@ public class ManageReservationsPanel extends JPanel {
         south.add(btnCancel);
         south.add(btnConfirm);
         add(south, BorderLayout.SOUTH);
+    }
+
+    // ── Search / Filter logic ─────────────────────────────────────────────────
+    private void applySearch() {
+        String text = txtSearch.getText().trim();
+        if (text.isEmpty()) {
+            sorter.setRowFilter(null);
+            return;
+        }
+
+        // Search across: Res.ID (col 0), Member (col 1), Student ID (col 2), Book Title (col 3)
+        RowFilter<DefaultTableModel, Object> filter =
+            RowFilter.regexFilter("(?i)" + text, 0, 1, 2, 3);
+        sorter.setRowFilter(filter);
     }
 
     // ── SWINGWORKER: refresh ──────────────────────────────────────────────────
@@ -156,6 +225,8 @@ public class ManageReservationsPanel extends JPanel {
                             r.getStatus()
                         });
                     }
+                    // Re-apply any active search after refresh
+                    applySearch();
                 } catch (Exception e) {
                     e.printStackTrace();
                     JOptionPane.showMessageDialog(ManageReservationsPanel.this,
@@ -169,12 +240,15 @@ public class ManageReservationsPanel extends JPanel {
 
     // ── SWINGWORKER: updateStatus ─────────────────────────────────────────────
     private void updateStatus(String status) {
-        int row = table.getSelectedRow();
-        if (row < 0) {
+        int viewRow = table.getSelectedRow();
+        if (viewRow < 0) {
             JOptionPane.showMessageDialog(this, "Select a reservation first.",
                 "No Selection", JOptionPane.WARNING_MESSAGE);
             return;
         }
+
+        // Convert view row → model row (important when filter is active)
+        int row = table.convertRowIndexToModel(viewRow);
 
         String current = (String) tableModel.getValueAt(row, 6);
         if ("Cancelled".equals(current) || "Expired".equals(current) || "Completed".equals(current)) {
@@ -231,5 +305,6 @@ public class ManageReservationsPanel extends JPanel {
         btnRefresh.setEnabled(enabled);
         btnCancel .setEnabled(enabled);
         btnConfirm.setEnabled(enabled);
+        btnSearch .setEnabled(enabled);
     }
 }

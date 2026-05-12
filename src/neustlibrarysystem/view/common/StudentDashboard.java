@@ -6,7 +6,7 @@ import neustlibrarysystem.dao.ReservationDAO;
 import neustlibrarysystem.model.Book;
 import neustlibrarysystem.model.BorrowedRecord;
 import neustlibrarysystem.model.Member;
-import neustlibrarysystem.model.Reservation;   // ← add this import (adjust package if needed)
+import neustlibrarysystem.model.Reservation;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -71,16 +71,18 @@ public class StudentDashboard extends JFrame {
     private JButton              activeNavBtn = null;
 
     // ── Browse Books ──────────────────────────────────────────────────────────
-    private JTextField        searchField;
-    private JTable            bookTable;
-    private DefaultTableModel bookModel;
-    private JButton           reserveBtn;
+    private JTextField                      searchField;
+    private JTable                          bookTable;
+    private DefaultTableModel               bookModel;
+    private TableRowSorter<DefaultTableModel> bookSorter;   // ← FIXED: declared here
+    private JButton                         reserveBtn;
 
     // ── Borrow Book ───────────────────────────────────────────────────────────
     private JTextField        borrowSearchField;
     private JComboBox<String> borrowCategoryFilter;
     private JTable            borrowTable;
     private DefaultTableModel borrowModel;
+    private TableRowSorter<DefaultTableModel> borrowSorter; // ← NEW: client-side sorter
     private JLabel            borrowSelectedLabel;
     private JSpinner          borrowDaysSpinner;
     private JLabel            borrowReturnDateLabel;
@@ -88,13 +90,17 @@ public class StudentDashboard extends JFrame {
     private JLabel            borrowStatusLabel;
 
     // ── Borrow History ────────────────────────────────────────────────────────
-    private JTable            historyTable;
-    private DefaultTableModel historyModel;
+    private JTextField                        historySearchField;  // ← NEW
+    private JTable                            historyTable;
+    private DefaultTableModel                 historyModel;
+    private TableRowSorter<DefaultTableModel> historySorter;       // ← NEW
 
     // ── Reservation History ───────────────────────────────────────────────────
-    private JTable            reservationTable;
-    private DefaultTableModel reservationModel;
-    private JButton           cancelReservationBtn;
+    private JTextField                        reservationSearchField; // ← NEW
+    private JTable                            reservationTable;
+    private DefaultTableModel                 reservationModel;
+    private TableRowSorter<DefaultTableModel> reservationSorter;     // ← NEW
+    private JButton                           cancelReservationBtn;
 
     // ── Dashboard stats ───────────────────────────────────────────────────────
     private JLabel statBorrowedVal, statReservedVal, statOverdueVal, statReturnedVal;
@@ -260,12 +266,12 @@ public class StudentDashboard extends JFrame {
         contentPanel.setBackground(CLR_BG);
         contentPanel.setBorder(new EmptyBorder(20, 24, 20, 24));
 
-        contentPanel.add(buildDashboardPanel(),       "dashboard");
-        contentPanel.add(buildBooksPanel(),           "books");
-        contentPanel.add(buildBorrowBookPanel(),      "borrowBook");
-        contentPanel.add(buildHistoryPanel(),         "history");
-        contentPanel.add(buildReservationHistoryPanel(), "reservations"); // ← NEW
-        contentPanel.add(buildProfilePanel(),         "profile");
+        contentPanel.add(buildDashboardPanel(),           "dashboard");
+        contentPanel.add(buildBooksPanel(),               "books");
+        contentPanel.add(buildBorrowBookPanel(),          "borrowBook");
+        contentPanel.add(buildHistoryPanel(),             "history");
+        contentPanel.add(buildReservationHistoryPanel(),  "reservations");
+        contentPanel.add(buildProfilePanel(),             "profile");
 
         mainArea.add(contentPanel, BorderLayout.CENTER);
         root.add(mainArea, BorderLayout.CENTER);
@@ -280,7 +286,6 @@ public class StudentDashboard extends JFrame {
         sidebar.setBackground(CLR_SIDEBAR);
         sidebar.setPreferredSize(new Dimension(SIDEBAR_EXPANDED, 0));
 
-        // Top logo area
         JPanel topArea = new JPanel(new BorderLayout());
         topArea.setBackground(CLR_TOPBAR);
         topArea.setBorder(new EmptyBorder(18, 0, 14, 0));
@@ -346,24 +351,22 @@ public class StudentDashboard extends JFrame {
         topArea.add(toggleBtn, BorderLayout.EAST);
         sidebar.add(topArea, BorderLayout.NORTH);
 
-        // Nav buttons
         JPanel navContainer = new JPanel();
         navContainer.setBackground(CLR_SIDEBAR);
         navContainer.setLayout(new BoxLayout(navContainer, BoxLayout.Y_AXIS));
         navContainer.setBorder(new EmptyBorder(16, 0, 16, 0));
 
         addSectionLabel(navContainer, "MAIN");
-        addNavBtn(navContainer, IconType.DASHBOARD, "Dashboard",        "dashboard");
+        addNavBtn(navContainer, IconType.DASHBOARD, "Dashboard",       "dashboard");
         addSectionLabel(navContainer, "LIBRARY");
-        addNavBtn(navContainer, IconType.BOOKS,     "Browse Books",     "books");
-        addNavBtn(navContainer, IconType.BORROW,    "Borrow Book",      "borrowBook");
-        addNavBtn(navContainer, IconType.HISTORY,   "Borrow History",   "history");
-        addNavBtn(navContainer, IconType.RESERVE,   "My Reservations",  "reservations"); // ← NEW
+        addNavBtn(navContainer, IconType.BOOKS,     "Browse Books",    "books");
+        addNavBtn(navContainer, IconType.BORROW,    "Borrow Book",     "borrowBook");
+        addNavBtn(navContainer, IconType.HISTORY,   "Borrow History",  "history");
+        addNavBtn(navContainer, IconType.RESERVE,   "My Reservations", "reservations");
         addSectionLabel(navContainer, "ACCOUNT");
-        addNavBtn(navContainer, IconType.PROFILE,   "My Profile",       "profile");
+        addNavBtn(navContainer, IconType.PROFILE,   "My Profile",      "profile");
         sidebar.add(navContainer, BorderLayout.CENTER);
 
-        // Bottom user + logout
         JPanel bottomArea = new JPanel();
         bottomArea.setBackground(CLR_SIDEBAR);
         bottomArea.setLayout(new BoxLayout(bottomArea, BoxLayout.Y_AXIS));
@@ -499,10 +502,10 @@ public class StudentDashboard extends JFrame {
             btn.setForeground(CLR_ACCENT);
             activeNavBtn = btn;
             cardLayout.show(contentPanel, card);
-            if ("history".equals(card))       loadHistory();
-            if ("reservations".equals(card))  loadReservations(); // ← NEW
-            if ("dashboard".equals(card))     refreshDashboardStats();
-            if ("borrowBook".equals(card))    loadBorrowBooks();
+            if ("history".equals(card))      loadHistory();
+            if ("reservations".equals(card)) loadReservations();
+            if ("dashboard".equals(card))    refreshDashboardStats();
+            if ("borrowBook".equals(card))   loadBorrowBooks();
         });
         container.add(btn);
         container.add(Box.createVerticalStrut(2));
@@ -587,8 +590,8 @@ public class StudentDashboard extends JFrame {
         rightPanel.add(dateLabel);
         rightPanel.add(badge);
 
-        bar.add(title,       BorderLayout.WEST);
-        bar.add(rightPanel,  BorderLayout.EAST);
+        bar.add(title,      BorderLayout.WEST);
+        bar.add(rightPanel, BorderLayout.EAST);
         return bar;
     }
 
@@ -599,7 +602,6 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 20));
         panel.setBackground(CLR_BG);
 
-        // Header
         JPanel headerRow = new JPanel(new BorderLayout());
         headerRow.setBackground(CLR_BG);
         JPanel headerText = new JPanel();
@@ -615,7 +617,6 @@ public class StudentDashboard extends JFrame {
         headerRow.add(headerText, BorderLayout.WEST);
         headerRow.add(refreshBtn, BorderLayout.EAST);
 
-        // Stat cards
         JPanel cardsRow = new JPanel(new GridLayout(1, 4, 16, 0));
         cardsRow.setBackground(CLR_BG);
         statBorrowedVal = new JLabel("—");
@@ -627,18 +628,17 @@ public class StudentDashboard extends JFrame {
         cardsRow.add(buildStatCard("Overdue Books",      "Past return date",     statOverdueVal,  CLR_CARD_RED,    IconType.OVERDUE));
         cardsRow.add(buildStatCard("Books Returned",     "All time",             statReturnedVal, CLR_CARD_GREEN,  IconType.HISTORY));
 
-        // Quick actions — 5 cards now
         JLabel qaLabel = new JLabel("Quick Actions");
         qaLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         qaLabel.setForeground(Color.WHITE);
 
         JPanel qaGrid = new JPanel(new GridLayout(1, 5, 12, 0));
         qaGrid.setBackground(CLR_BG);
-        qaGrid.add(buildQuickActionCard("Browse Books",     "Search library catalog",      IconType.BOOKS,   "books"));
-        qaGrid.add(buildQuickActionCard("Borrow Book",      "Borrow available books",      IconType.BORROW,  "borrowBook"));
-        qaGrid.add(buildQuickActionCard("Borrow History",   "View your borrowing records", IconType.HISTORY, "history"));
-        qaGrid.add(buildQuickActionCard("My Reservations",  "Track reserved books",        IconType.RESERVE, "reservations")); // ← NEW
-        qaGrid.add(buildQuickActionCard("My Profile",       "View and edit your info",     IconType.PROFILE, "profile"));
+        qaGrid.add(buildQuickActionCard("Browse Books",    "Search library catalog",      IconType.BOOKS,   "books"));
+        qaGrid.add(buildQuickActionCard("Borrow Book",     "Borrow available books",      IconType.BORROW,  "borrowBook"));
+        qaGrid.add(buildQuickActionCard("Borrow History",  "View your borrowing records", IconType.HISTORY, "history"));
+        qaGrid.add(buildQuickActionCard("My Reservations", "Track reserved books",        IconType.RESERVE, "reservations"));
+        qaGrid.add(buildQuickActionCard("My Profile",      "View and edit your info",     IconType.PROFILE, "profile"));
 
         JPanel center = new JPanel();
         center.setBackground(CLR_BG);
@@ -727,7 +727,7 @@ public class StudentDashboard extends JFrame {
                 cardLayout.show(contentPanel, card);
                 selectNavByCard(card);
                 if ("history".equals(card))      loadHistory();
-                if ("reservations".equals(card)) loadReservations(); // ← NEW
+                if ("reservations".equals(card)) loadReservations();
                 if ("borrowBook".equals(card))   loadBorrowBooks();
             }
         });
@@ -797,13 +797,13 @@ public class StudentDashboard extends JFrame {
 
         JPanel headerRow = new JPanel(new BorderLayout());
         headerRow.setBackground(CLR_BG);
-        JLabel header = new JLabel("Browse Books");
-        header.setFont(FONT_HEADER); header.setForeground(Color.WHITE);
-        JLabel sub = new JLabel("Search and reserve books from the catalog");
-        sub.setFont(FONT_SUBHDR); sub.setForeground(CLR_TEXT_DIM);
         JPanel hText = new JPanel();
         hText.setBackground(CLR_BG);
         hText.setLayout(new BoxLayout(hText, BoxLayout.Y_AXIS));
+        JLabel header = new JLabel("Browse Books");
+        header.setFont(FONT_HEADER); header.setForeground(Color.WHITE);
+        JLabel sub = new JLabel("Search by ID, title, author, category, or publisher");
+        sub.setFont(FONT_SUBHDR); sub.setForeground(CLR_TEXT_DIM);
         hText.add(header); hText.add(sub);
         headerRow.add(hText, BorderLayout.WEST);
 
@@ -822,15 +822,16 @@ public class StudentDashboard extends JFrame {
         JButton searchBtn = makeActionButton("  Search", IconType.SEARCH, CLR_ACCENT);
         searchBtn.addActionListener(e -> searchBooks());
         searchField.addActionListener(e -> searchBooks());
+        searchField.addKeyListener(new KeyAdapter() {
+            @Override public void keyReleased(KeyEvent e) { searchBooks(); }
+        });
 
         JButton clearBtn = new JButton("Show All");
-        clearBtn.setFont(FONT_BODY);
-        clearBtn.setBackground(new Color(0x2a4a2a));
-        clearBtn.setForeground(new Color(0xccddcc));
-        clearBtn.setFocusPainted(false); clearBtn.setBorderPainted(false);
-        clearBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        clearBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
-        clearBtn.addActionListener(e -> { searchField.setText(""); loadBooks(); });
+        styleSecondaryButton(clearBtn);
+        clearBtn.addActionListener(e -> {
+            searchField.setText("");
+            if (bookSorter != null) bookSorter.setRowFilter(null);
+        });
 
         JLabel searchLbl = new JLabel("Search:");
         searchLbl.setForeground(CLR_TEXT_DIM);
@@ -841,9 +842,10 @@ public class StudentDashboard extends JFrame {
 
         JPanel topSection = new JPanel(new BorderLayout(0, 10));
         topSection.setBackground(CLR_BG);
-        topSection.add(headerRow,  BorderLayout.NORTH);
-        topSection.add(searchBar,  BorderLayout.SOUTH);
+        topSection.add(headerRow, BorderLayout.NORTH);
+        topSection.add(searchBar, BorderLayout.SOUTH);
 
+        // Columns: ID=0, Title=1, Authors=2, Category=3, Publisher=4, Availability=5, Location=6
         String[] cols = {"ID", "Title", "Authors", "Category", "Publisher", "Availability", "Location"};
         bookModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
@@ -851,6 +853,11 @@ public class StudentDashboard extends JFrame {
         };
         bookTable = new JTable(bookModel);
         styleTable(bookTable);
+
+        // Client-side row sorter — searches ALL columns including ID(0)
+        bookSorter = new TableRowSorter<>(bookModel);
+        bookTable.setRowSorter(bookSorter);
+
         bookTable.getColumnModel().getColumn(0).setPreferredWidth(40);
         bookTable.getColumnModel().getColumn(1).setPreferredWidth(230);
         bookTable.getColumnModel().getColumn(2).setPreferredWidth(170);
@@ -898,7 +905,7 @@ public class StudentDashboard extends JFrame {
         hText.setLayout(new BoxLayout(hText, BoxLayout.Y_AXIS));
         JLabel h   = new JLabel("Borrow a Book");
         h.setFont(FONT_HEADER); h.setForeground(Color.WHITE);
-        JLabel sub = new JLabel("Select an available book and submit a borrow request");
+        JLabel sub = new JLabel("Search by ID, title, author, or category — then submit a borrow request");
         sub.setFont(FONT_SUBHDR); sub.setForeground(CLR_TEXT_DIM);
         hText.add(h); hText.add(sub);
 
@@ -907,8 +914,8 @@ public class StudentDashboard extends JFrame {
         borrowStatusLabel.setForeground(CLR_ACCENT);
         borrowStatusLabel.setHorizontalAlignment(SwingConstants.RIGHT);
 
-        headerRow.add(hText,              BorderLayout.WEST);
-        headerRow.add(borrowStatusLabel,  BorderLayout.EAST);
+        headerRow.add(hText,             BorderLayout.WEST);
+        headerRow.add(borrowStatusLabel, BorderLayout.EAST);
 
         JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         searchBar.setBackground(CLR_BG);
@@ -922,6 +929,7 @@ public class StudentDashboard extends JFrame {
         borrowSearchField.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(CLR_BORDER, 1),
             new EmptyBorder(4, 8, 4, 8)));
+        // Live filter via sorter (includes ID column 0)
         borrowSearchField.addKeyListener(new KeyAdapter() {
             @Override public void keyReleased(KeyEvent e) { filterBorrowTable(); }
         });
@@ -939,12 +947,7 @@ public class StudentDashboard extends JFrame {
         borrowSearchBtn.addActionListener(e -> filterBorrowTable());
 
         JButton borrowRefreshBtn = new JButton("  Refresh");
-        borrowRefreshBtn.setFont(FONT_BODY);
-        borrowRefreshBtn.setBackground(new Color(0x2a4a2a));
-        borrowRefreshBtn.setForeground(new Color(0xccddcc));
-        borrowRefreshBtn.setFocusPainted(false); borrowRefreshBtn.setBorderPainted(false);
-        borrowRefreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        borrowRefreshBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
+        styleSecondaryButton(borrowRefreshBtn);
         borrowRefreshBtn.addActionListener(e -> {
             borrowSearchField.setText("");
             borrowCategoryFilter.setSelectedIndex(0);
@@ -974,6 +977,11 @@ public class StudentDashboard extends JFrame {
         };
         borrowTable = new JTable(borrowModel);
         styleTable(borrowTable);
+
+        // ← NEW: client-side sorter so text-field filter works without re-querying DB
+        borrowSorter = new TableRowSorter<>(borrowModel);
+        borrowTable.setRowSorter(borrowSorter);
+
         borrowTable.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(
                     JTable t, Object v, boolean sel, boolean foc, int r, int c) {
@@ -1065,12 +1073,7 @@ public class StudentDashboard extends JFrame {
 
         gc.gridx = 2; gc.gridwidth = 1;
         JButton clearSelBtn = new JButton("  Clear");
-        clearSelBtn.setFont(FONT_BODY);
-        clearSelBtn.setBackground(new Color(0x2a4a2a));
-        clearSelBtn.setForeground(new Color(0xccddcc));
-        clearSelBtn.setFocusPainted(false); clearSelBtn.setBorderPainted(false);
-        clearSelBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        clearSelBtn.setBorder(new EmptyBorder(6, 14, 6, 14));
+        styleSecondaryButton(clearSelBtn);
         clearSelBtn.addActionListener(e -> clearBorrowSelection());
         formCard.add(clearSelBtn, gc);
 
@@ -1079,27 +1082,76 @@ public class StudentDashboard extends JFrame {
         centerArea.add(tableScroll, BorderLayout.CENTER);
         centerArea.add(formCard,    BorderLayout.SOUTH);
 
-        panel.add(topSection,  BorderLayout.NORTH);
-        panel.add(centerArea,  BorderLayout.CENTER);
+        panel.add(topSection, BorderLayout.NORTH);
+        panel.add(centerArea, BorderLayout.CENTER);
         return panel;
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  BORROW HISTORY PANEL
+    //  BORROW HISTORY PANEL  ← SEARCH BAR ADDED
     // ════════════════════════════════════════════════════════════════════════
     private JPanel buildHistoryPanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 14));
         panel.setBackground(CLR_BG);
 
-        JPanel headerArea = new JPanel();
-        headerArea.setBackground(CLR_BG);
-        headerArea.setLayout(new BoxLayout(headerArea, BoxLayout.Y_AXIS));
+        // Header row with refresh button
+        JPanel headerRow = new JPanel(new BorderLayout());
+        headerRow.setBackground(CLR_BG);
+        JPanel headerText = new JPanel();
+        headerText.setBackground(CLR_BG);
+        headerText.setLayout(new BoxLayout(headerText, BoxLayout.Y_AXIS));
         JLabel title = new JLabel("My Borrow History");
         title.setFont(FONT_HEADER); title.setForeground(Color.WHITE);
-        JLabel sub = new JLabel("All your borrowing records");
+        JLabel sub = new JLabel("Search by Borrow ID, title, date, or status");
         sub.setFont(FONT_SUBHDR); sub.setForeground(CLR_TEXT_DIM);
-        headerArea.add(title); headerArea.add(sub);
+        headerText.add(title); headerText.add(sub);
+        JButton refreshBtn = makeActionButton("  Refresh", IconType.REFRESH, CLR_ACCENT2);
+        refreshBtn.addActionListener(e -> loadHistory());
+        headerRow.add(headerText, BorderLayout.WEST);
+        headerRow.add(refreshBtn, BorderLayout.EAST);
 
+        // Search bar
+        JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        searchBar.setBackground(CLR_BG);
+
+        historySearchField = new JTextField(28);
+        historySearchField.setFont(FONT_BODY);
+        historySearchField.setPreferredSize(new Dimension(280, 34));
+        historySearchField.setBackground(CLR_CARD_BG);
+        historySearchField.setForeground(Color.WHITE);
+        historySearchField.setCaretColor(CLR_ACCENT);
+        historySearchField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_BORDER, 1),
+            new EmptyBorder(4, 8, 4, 8)));
+        // Live filter — searches ALL columns including Borrow ID (col 0)
+        historySearchField.addKeyListener(new KeyAdapter() {
+            @Override public void keyReleased(KeyEvent e) { filterHistoryTable(); }
+        });
+        historySearchField.addActionListener(e -> filterHistoryTable());
+
+        JButton searchBtn = makeActionButton("  Search", IconType.SEARCH, CLR_ACCENT);
+        searchBtn.addActionListener(e -> filterHistoryTable());
+
+        JButton clearBtn = new JButton("Show All");
+        styleSecondaryButton(clearBtn);
+        clearBtn.addActionListener(e -> {
+            historySearchField.setText("");
+            if (historySorter != null) historySorter.setRowFilter(null);
+        });
+
+        JLabel searchLbl = new JLabel("Search:");
+        searchLbl.setForeground(CLR_TEXT_DIM);
+        searchBar.add(searchLbl);
+        searchBar.add(historySearchField);
+        searchBar.add(searchBtn);
+        searchBar.add(clearBtn);
+
+        JPanel topSection = new JPanel(new BorderLayout(0, 10));
+        topSection.setBackground(CLR_BG);
+        topSection.add(headerRow, BorderLayout.NORTH);
+        topSection.add(searchBar, BorderLayout.SOUTH);
+
+        // Table
         String[] cols = {"Borrow ID", "Book Title", "Borrow Date",
                          "Due Date", "Return Date", "Status", "Fine (PHP)"};
         historyModel = new DefaultTableModel(cols, 0) {
@@ -1108,6 +1160,11 @@ public class StudentDashboard extends JFrame {
         };
         historyTable = new JTable(historyModel);
         styleTable(historyTable);
+
+        // Client-side sorter: all 7 columns searchable (0 = Borrow ID)
+        historySorter = new TableRowSorter<>(historyModel);
+        historyTable.setRowSorter(historySorter);
+
         historyTable.getColumnModel().getColumn(0).setPreferredWidth(80);
         historyTable.getColumnModel().getColumn(1).setPreferredWidth(250);
         historyTable.getColumnModel().getColumn(2).setPreferredWidth(110);
@@ -1138,13 +1195,13 @@ public class StudentDashboard extends JFrame {
         tableScroll.getViewport().setBackground(new Color(0x1a2e1a));
         tableScroll.setBorder(BorderFactory.createLineBorder(CLR_BORDER, 1));
 
-        panel.add(headerArea,  BorderLayout.NORTH);
+        panel.add(topSection,  BorderLayout.NORTH);
         panel.add(tableScroll, BorderLayout.CENTER);
         return panel;
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  MY RESERVATIONS PANEL  ← NEW
+    //  MY RESERVATIONS PANEL  ← SEARCH BAR ADDED
     // ════════════════════════════════════════════════════════════════════════
     private JPanel buildReservationHistoryPanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 14));
@@ -1158,14 +1215,54 @@ public class StudentDashboard extends JFrame {
         hText.setLayout(new BoxLayout(hText, BoxLayout.Y_AXIS));
         JLabel title = new JLabel("My Reservations");
         title.setFont(FONT_HEADER); title.setForeground(Color.WHITE);
-        JLabel sub = new JLabel("All books you have reserved");
+        JLabel sub = new JLabel("Search by Reservation ID, title, author, date, or status");
         sub.setFont(FONT_SUBHDR); sub.setForeground(CLR_TEXT_DIM);
         hText.add(title); hText.add(sub);
-
         JButton refreshBtn = makeActionButton("  Refresh", IconType.REFRESH, CLR_ACCENT2);
         refreshBtn.addActionListener(e -> loadReservations());
-        headerRow.add(hText,       BorderLayout.WEST);
-        headerRow.add(refreshBtn,  BorderLayout.EAST);
+        headerRow.add(hText,      BorderLayout.WEST);
+        headerRow.add(refreshBtn, BorderLayout.EAST);
+
+        // Search bar
+        JPanel searchBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        searchBar.setBackground(CLR_BG);
+
+        reservationSearchField = new JTextField(28);
+        reservationSearchField.setFont(FONT_BODY);
+        reservationSearchField.setPreferredSize(new Dimension(280, 34));
+        reservationSearchField.setBackground(CLR_CARD_BG);
+        reservationSearchField.setForeground(Color.WHITE);
+        reservationSearchField.setCaretColor(CLR_ACCENT);
+        reservationSearchField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CLR_BORDER, 1),
+            new EmptyBorder(4, 8, 4, 8)));
+        // Live filter — searches ALL columns including Reservation ID (col 0)
+        reservationSearchField.addKeyListener(new KeyAdapter() {
+            @Override public void keyReleased(KeyEvent e) { filterReservationTable(); }
+        });
+        reservationSearchField.addActionListener(e -> filterReservationTable());
+
+        JButton searchBtn = makeActionButton("  Search", IconType.SEARCH, CLR_ACCENT);
+        searchBtn.addActionListener(e -> filterReservationTable());
+
+        JButton clearBtn = new JButton("Show All");
+        styleSecondaryButton(clearBtn);
+        clearBtn.addActionListener(e -> {
+            reservationSearchField.setText("");
+            if (reservationSorter != null) reservationSorter.setRowFilter(null);
+        });
+
+        JLabel searchLbl = new JLabel("Search:");
+        searchLbl.setForeground(CLR_TEXT_DIM);
+        searchBar.add(searchLbl);
+        searchBar.add(reservationSearchField);
+        searchBar.add(searchBtn);
+        searchBar.add(clearBtn);
+
+        JPanel topSection = new JPanel(new BorderLayout(0, 10));
+        topSection.setBackground(CLR_BG);
+        topSection.add(headerRow, BorderLayout.NORTH);
+        topSection.add(searchBar, BorderLayout.SOUTH);
 
         // Table
         String[] cols = {
@@ -1178,6 +1275,11 @@ public class StudentDashboard extends JFrame {
         };
         reservationTable = new JTable(reservationModel);
         styleTable(reservationTable);
+
+        // Client-side sorter: all 6 columns searchable (0 = Reservation ID)
+        reservationSorter = new TableRowSorter<>(reservationModel);
+        reservationTable.setRowSorter(reservationSorter);
+
         reservationTable.getColumnModel().getColumn(0).setPreferredWidth(110);
         reservationTable.getColumnModel().getColumn(1).setPreferredWidth(260);
         reservationTable.getColumnModel().getColumn(2).setPreferredWidth(170);
@@ -1185,7 +1287,6 @@ public class StudentDashboard extends JFrame {
         reservationTable.getColumnModel().getColumn(4).setPreferredWidth(110);
         reservationTable.getColumnModel().getColumn(5).setPreferredWidth(100);
 
-        // Color-code Status column
         reservationTable.getColumnModel().getColumn(5).setCellRenderer(
             new DefaultTableCellRenderer() {
                 @Override public Component getTableCellRendererComponent(
@@ -1231,7 +1332,6 @@ public class StudentDashboard extends JFrame {
         });
         cancelReservationBtn.addActionListener(e -> cancelSelectedReservation());
 
-        // Enable cancel button only when a pending/active row is selected
         reservationTable.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) return;
             int row = reservationTable.getSelectedRow();
@@ -1249,7 +1349,7 @@ public class StudentDashboard extends JFrame {
         actions.add(cancelReservationBtn);
         actions.add(hint);
 
-        panel.add(headerRow,   BorderLayout.NORTH);
+        panel.add(topSection,  BorderLayout.NORTH);
         panel.add(tableScroll, BorderLayout.CENTER);
         panel.add(actions,     BorderLayout.SOUTH);
         return panel;
@@ -1330,15 +1430,19 @@ public class StudentDashboard extends JFrame {
         }.execute();
     }
 
+    /**
+     * Filters the Browse Books table client-side.
+     * Searches columns: ID(0), Title(1), Authors(2), Category(3), Publisher(4).
+     * Availability(5) and Location(6) are excluded to avoid false hits like "6 available".
+     */
     private void searchBooks() {
         String kw = searchField.getText().trim();
-        if (kw.isEmpty()) { loadBooks(); return; }
-        new SwingWorker<List<Book>, Void>() {
-            @Override protected List<Book> doInBackground() { return bookDAO.searchBooks(kw); }
-            @Override protected void done() {
-                try { populateBookTable(get()); } catch (Exception ignored) {}
-            }
-        }.execute();
+        if (bookSorter == null) return;
+        if (kw.isEmpty()) {
+            bookSorter.setRowFilter(null);
+            return;
+        }
+        bookSorter.setRowFilter(RowFilter.regexFilter("(?i)" + kw, 0, 1, 2, 3, 4));
     }
 
     private void populateBookTable(List<Book> books) {
@@ -1348,12 +1452,16 @@ public class StudentDashboard extends JFrame {
                 b.getAuthors().stream().map(a -> a.getFullName())
                     .reduce((x, y) -> x + ", " + y).orElse("");
             bookModel.addRow(new Object[]{
-                String.valueOf(b.getBookID()), b.getTitle(), authors,
-                b.getCategoryName(), b.getPublisherName(),
+                String.valueOf(b.getBookID()),
+                b.getTitle(),
+                authors,
+                b.getCategoryName(),
+                b.getPublisherName(),
                 b.isAvailable() ? b.getAvailableCopies() + " available" : "Not available",
                 b.getShelfLocation()
             });
         }
+        searchBooks(); // re-apply any active filter after reload
     }
 
     private void loadBorrowBooks() {
@@ -1365,41 +1473,55 @@ public class StudentDashboard extends JFrame {
         }.execute();
     }
 
+    /**
+     * Filters the Borrow Book table client-side via TableRowSorter.
+     * Searches: ID(0), Title(1), Authors(2), Category(3), Publisher(4).
+     * Category combo box applies an additional filter on column 3.
+     */
     private void filterBorrowTable() {
-        String kw  = borrowSearchField.getText().trim().toLowerCase();
+        if (borrowSorter == null) return;
+        String kw  = borrowSearchField.getText().trim();
         String cat = (String) borrowCategoryFilter.getSelectedItem();
         boolean allCats = "All Categories".equals(cat);
 
-        new SwingWorker<List<Book>, Void>() {
-            @Override protected List<Book> doInBackground() { return bookDAO.getAllBooks(); }
-            @Override protected void done() {
-                try {
-                    List<Book> all = get();
-                    borrowModel.setRowCount(0);
-                    int shown = 0;
-                    for (Book b : all) {
-                        boolean matchKw  = kw.isEmpty()
-                            || b.getTitle().toLowerCase().contains(kw)
-                            || (b.getAuthors() != null && b.getAuthors().stream()
-                                .anyMatch(a -> a.getFullName().toLowerCase().contains(kw)));
-                        boolean matchCat = allCats
-                            || (b.getCategoryName() != null
-                                && b.getCategoryName().equalsIgnoreCase(cat));
-                        if (matchKw && matchCat) {
-                            addBorrowRow(b);
-                            shown++;
-                        }
-                    }
-                    borrowStatusLabel.setText("Showing " + shown + " book(s)");
-                } catch (Exception ignored) {}
-            }
-        }.execute();
+        RowFilter<DefaultTableModel, Object> kwFilter = null;
+        RowFilter<DefaultTableModel, Object> catFilter = null;
+
+        if (!kw.isEmpty()) {
+            try {
+                kwFilter = RowFilter.regexFilter("(?i)" + kw, 0, 1, 2, 3, 4);
+            } catch (java.util.regex.PatternSyntaxException ignored) {}
+        }
+        if (!allCats) {
+            final String catFinal = cat;
+            catFilter = new RowFilter<>() {
+                @Override public boolean include(Entry<? extends DefaultTableModel, ? extends Object> entry) {
+                    String cellVal = entry.getStringValue(3); // Category column
+                    return cellVal != null && cellVal.equalsIgnoreCase(catFinal);
+                }
+            };
+        }
+
+        if (kwFilter == null && catFilter == null) {
+            borrowSorter.setRowFilter(null);
+        } else if (kwFilter != null && catFilter != null) {
+            List<RowFilter<DefaultTableModel, Object>> filters = new ArrayList<>();
+            filters.add(kwFilter);
+            filters.add(catFilter);
+            borrowSorter.setRowFilter(RowFilter.andFilter(filters));
+        } else {
+            borrowSorter.setRowFilter(kwFilter != null ? kwFilter : catFilter);
+        }
+
+        // Update status label with visible row count
+        int visible = borrowTable.getRowCount();
+        borrowStatusLabel.setText("Showing " + visible + " book(s)");
     }
 
     private void populateBorrowTable(List<Book> books) {
         borrowModel.setRowCount(0);
         for (Book b : books) addBorrowRow(b);
-        borrowStatusLabel.setText("Showing " + books.size() + " book(s)");
+        filterBorrowTable(); // apply current filter after reload
     }
 
     private void addBorrowRow(Book b) {
@@ -1425,21 +1547,40 @@ public class StudentDashboard extends JFrame {
                     for (BorrowedRecord br : get()) {
                         historyModel.addRow(new Object[]{
                             String.valueOf(br.getBorrowID()),
-                            br.getBookTitle()  != null ? br.getBookTitle()                : "—",
+                            br.getBookTitle()  != null ? br.getBookTitle()                 : "—",
                             br.getBorrowDate() != null ? br.getBorrowDate().format(DT_FMT) : "—",
                             br.getDueDate()    != null ? br.getDueDate().format(DT_FMT)    : "—",
                             br.getReturnDate() != null ? br.getReturnDate().format(DT_FMT) : "—",
-                            br.getStatus()     != null ? br.getStatus()                   : "—",
+                            br.getStatus()     != null ? br.getStatus()                    : "—",
                             "₱" + (br.getFineAmount() != null
                                 ? br.getFineAmount().toPlainString() : "0.00")
                         });
                     }
+                    // Re-apply any active history search filter
+                    filterHistoryTable();
                 } catch (Exception ignored) {}
             }
         }.execute();
     }
 
-    // ── NEW: load reservations ────────────────────────────────────────────────
+    /**
+     * Filters the Borrow History table client-side.
+     * Searches ALL columns: BorrowID(0), Title(1), BorrowDate(2),
+     *   DueDate(3), ReturnDate(4), Status(5), Fine(6).
+     */
+    private void filterHistoryTable() {
+        if (historySorter == null) return;
+        String kw = historySearchField.getText().trim();
+        if (kw.isEmpty()) {
+            historySorter.setRowFilter(null);
+            return;
+        }
+        try {
+            historySorter.setRowFilter(
+                RowFilter.regexFilter("(?i)" + kw, 0, 1, 2, 3, 4, 5, 6));
+        } catch (java.util.regex.PatternSyntaxException ignored) {}
+    }
+
     private void loadReservations() {
         new SwingWorker<List<Reservation>, Void>() {
             @Override protected List<Reservation> doInBackground() {
@@ -1453,19 +1594,36 @@ public class StudentDashboard extends JFrame {
                         String authors = r.getBookAuthors() != null ? r.getBookAuthors() : "—";
                         reservationModel.addRow(new Object[]{
                             String.valueOf(r.getReservationID()),
-                            
-                            r.getBookTitle()     != null ? r.getBookTitle()                   : "—",
+                            r.getBookTitle()    != null ? r.getBookTitle()                    : "—",
                             authors,
-                            r.getReservedDate() != null
-                                ? r.getReservedDate().format(DT_FMT) : "—",
-                            r.getExpiryDate()    != null
-                                ? r.getExpiryDate().format(DT_FMT)    : "—",
-                            r.getStatus()        != null ? r.getStatus()                     : "—"
+                            r.getReservedDate() != null ? r.getReservedDate().format(DT_FMT) : "—",
+                            r.getExpiryDate()   != null ? r.getExpiryDate().format(DT_FMT)   : "—",
+                            r.getStatus()       != null ? r.getStatus()                      : "—"
                         });
                     }
+                    // Re-apply any active reservation search filter
+                    filterReservationTable();
                 } catch (Exception ignored) {}
             }
         }.execute();
+    }
+
+    /**
+     * Filters the My Reservations table client-side.
+     * Searches ALL columns: ReservationID(0), Title(1), Authors(2),
+     *   DateReserved(3), ExpiryDate(4), Status(5).
+     */
+    private void filterReservationTable() {
+        if (reservationSorter == null) return;
+        String kw = reservationSearchField.getText().trim();
+        if (kw.isEmpty()) {
+            reservationSorter.setRowFilter(null);
+            return;
+        }
+        try {
+            reservationSorter.setRowFilter(
+                RowFilter.regexFilter("(?i)" + kw, 0, 1, 2, 3, 4, 5));
+        } catch (java.util.regex.PatternSyntaxException ignored) {}
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1565,7 +1723,7 @@ public class StudentDashboard extends JFrame {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  RESERVATION ACTIONS  ← NEW
+    //  RESERVATION ACTIONS
     // ════════════════════════════════════════════════════════════════════════
     private void cancelSelectedReservation() {
         int row = reservationTable.getSelectedRow();
@@ -1701,6 +1859,16 @@ public class StudentDashboard extends JFrame {
         btn.setBorder(new EmptyBorder(8, 18, 8, 18));
         btn.setIconTextGap(6);
         return btn;
+    }
+
+    /** Shared style for secondary/neutral buttons (Show All, Refresh, Clear). */
+    private static void styleSecondaryButton(JButton btn) {
+        btn.setFont(FONT_BODY);
+        btn.setBackground(new Color(0x2a4a2a));
+        btn.setForeground(new Color(0xccddcc));
+        btn.setFocusPainted(false); btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(6, 14, 6, 14));
     }
 
     private JLabel dimLabel(String text) {

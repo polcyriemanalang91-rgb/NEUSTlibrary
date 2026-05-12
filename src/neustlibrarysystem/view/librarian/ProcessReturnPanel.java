@@ -18,7 +18,8 @@ public class ProcessReturnPanel extends JPanel {
     private final Librarian   librarian;
     private DefaultTableModel tableModel;
     private JTable            table;
-    private JButton           btnRefresh, btnReturn;
+    private JButton           btnRefresh, btnReturn, btnSearch;
+    private JTextField        tfSearch;
 
     public ProcessReturnPanel(Librarian librarian) {
         this.librarian = librarian;
@@ -41,10 +42,31 @@ public class ProcessReturnPanel extends JPanel {
         hdr.setForeground(LibrarianDashboard.CLR_PRIMARY);
         header.add(hdr, BorderLayout.WEST);
 
-        JLabel hint = new JLabel("Select a record below then click Process Return");
-        hint.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-        hint.setForeground(new Color(0x485f48));
-        header.add(hint, BorderLayout.EAST);
+        // ── Search bar ────────────────────────────────────────────────────────
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        bar.setOpaque(false);
+
+        JLabel searchLbl = new JLabel("Search:");
+        searchLbl.setFont(LibrarianDashboard.FONT_LABEL);
+        searchLbl.setForeground(new Color(0x303c1b));
+
+        tfSearch = new JTextField(22);
+        tfSearch.setFont(LibrarianDashboard.FONT_BODY);
+        tfSearch.setForeground(new Color(0x303c1b));
+        tfSearch.setBackground(Color.WHITE);
+        tfSearch.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(LibrarianDashboard.CLR_ACCENT, 1, true),
+            new EmptyBorder(5, 10, 5, 10)
+        ));
+
+        btnSearch  = LibrarianDashboard.primaryBtn("🔍  Search");
+        btnRefresh = LibrarianDashboard.accentBtn("🔄  Refresh");
+        btnSearch .addActionListener(e -> searchReturns());
+        btnRefresh.addActionListener(e -> { tfSearch.setText(""); refresh(); });
+
+        bar.add(searchLbl); bar.add(tfSearch);
+        bar.add(btnSearch); bar.add(btnRefresh);
+        header.add(bar, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
         // ── Table ─────────────────────────────────────────────────────────────
@@ -56,7 +78,6 @@ public class ProcessReturnPanel extends JPanel {
         table = new JTable(tableModel);
         LibrarianDashboard.styleTable(table);
 
-        // ── Fix: light green header matching ManageBooks style ────────────────
         JTableHeader tableHeader = table.getTableHeader();
         tableHeader.setOpaque(true);
         tableHeader.setPreferredSize(new Dimension(tableHeader.getWidth(), 36));
@@ -111,12 +132,9 @@ public class ProcessReturnPanel extends JPanel {
         JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 10));
         south.setOpaque(false);
 
-        btnRefresh = LibrarianDashboard.accentBtn("🔄  Refresh");
-        btnReturn  = LibrarianDashboard.primaryBtn("↩  Process Return");
-        btnRefresh.addActionListener(e -> refresh());
-        btnReturn .addActionListener(e -> processReturn());
+        btnReturn = LibrarianDashboard.primaryBtn("↩  Process Return");
+        btnReturn.addActionListener(e -> processReturn());
 
-        south.add(btnRefresh);
         south.add(btnReturn);
         add(south, BorderLayout.SOUTH);
     }
@@ -125,6 +143,7 @@ public class ProcessReturnPanel extends JPanel {
     public void refresh() {
         btnRefresh.setEnabled(false);
         btnReturn .setEnabled(false);
+        btnSearch .setEnabled(false);
         tableModel.setRowCount(0);
 
         new SwingWorker<List<BorrowedRecord>, Void>() {
@@ -136,13 +155,16 @@ public class ProcessReturnPanel extends JPanel {
             @Override
             protected void done() {
                 try {
-                    for (BorrowedRecord r : get()) {
-                        tableModel.addRow(new Object[]{
-                            r.getBorrowID(),   r.getMemberName(), r.getStudentID(),
-                            r.getBookTitle(),  r.getBorrowDate(), r.getDueDate(),
-                            r.getStatus(),
-                            String.format("₱%.2f", r.getFineAmount())
-                        });
+                    List<BorrowedRecord> result = get();
+                    if (result != null) {
+                        for (BorrowedRecord r : result) {
+                            tableModel.addRow(new Object[]{
+                                r.getBorrowID(),   r.getMemberName(), r.getStudentID(),
+                                r.getBookTitle(),  r.getBorrowDate(), r.getDueDate(),
+                                r.getStatus(),
+                                String.format("₱%.2f", r.getFineAmount())
+                            });
+                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -151,9 +173,51 @@ public class ProcessReturnPanel extends JPanel {
                 } finally {
                     btnRefresh.setEnabled(true);
                     btnReturn .setEnabled(true);
+                    btnSearch .setEnabled(true);
                 }
             }
         }.execute();
+    }
+
+    // ── searchReturns ─────────────────────────────────────────────────────────
+    private void searchReturns() {
+        String kw = tfSearch.getText().trim();
+        if (kw.isEmpty()) { refresh(); return; }
+
+        // Exact match by Borrow ID if pure number
+        if (kw.matches("\\d+")) {
+            int targetID = Integer.parseInt(kw);
+            for (int r = tableModel.getRowCount() - 1; r >= 0; r--) {
+                if ((int) tableModel.getValueAt(r, 0) != targetID) {
+                    tableModel.removeRow(r);
+                }
+            }
+            if (tableModel.getRowCount() == 0) {
+                JOptionPane.showMessageDialog(this,
+                    "No record found with Borrow ID: " + targetID,
+                    "Not Found", JOptionPane.WARNING_MESSAGE);
+            }
+            return;
+        }
+
+        // Text search via DAO
+        tableModel.setRowCount(0);
+        List<BorrowedRecord> results = borrowDAO.searchActiveBorrows(kw);
+        if (results != null) {
+            for (BorrowedRecord r : results) {
+                tableModel.addRow(new Object[]{
+                    r.getBorrowID(),   r.getMemberName(), r.getStudentID(),
+                    r.getBookTitle(),  r.getBorrowDate(), r.getDueDate(),
+                    r.getStatus(),
+                    String.format("₱%.2f", r.getFineAmount())
+                });
+            }
+        }
+        if (tableModel.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this,
+                "No records found for: " + kw,
+                "Not Found", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     // ── SWINGWORKER: processReturn ────────────────────────────────────────────
@@ -170,7 +234,6 @@ public class ProcessReturnPanel extends JPanel {
         String bookTitle   = (String) tableModel.getValueAt(row, 3);
         String currentFine = (String) tableModel.getValueAt(row, 7);
 
-        // ── Return dialog ─────────────────────────────────────────────────────
         JComboBox<String> cbCond = new JComboBox<>(
             new String[]{"Good", "New", "Fair", "Damaged", "Lost"});
         cbCond.setFont(LibrarianDashboard.FONT_BODY);
@@ -223,9 +286,9 @@ public class ProcessReturnPanel extends JPanel {
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE)
                 != JOptionPane.OK_OPTION) return;
 
-        // ── Disable buttons while processing ──────────────────────────────────
         btnReturn .setEnabled(false);
         btnRefresh.setEnabled(false);
+        btnSearch .setEnabled(false);
 
         final String condition = (String) cbCond.getSelectedItem();
         final String remarks   = tfRemarks.getText().trim();
@@ -261,6 +324,7 @@ public class ProcessReturnPanel extends JPanel {
                 } finally {
                     btnReturn .setEnabled(true);
                     btnRefresh.setEnabled(true);
+                    btnSearch .setEnabled(true);
                 }
             }
         }.execute();

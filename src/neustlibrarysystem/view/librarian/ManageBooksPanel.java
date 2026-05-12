@@ -79,7 +79,6 @@ public class ManageBooksPanel extends JPanel {
         table = new JTable(tableModel);
         LibrarianDashboard.styleTable(table);
 
-        // FIX 1: Custom header renderer — guaranteed black text, no override possible
         table.getTableHeader().setPreferredSize(new Dimension(0, 36));
         table.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
             @Override
@@ -99,13 +98,12 @@ public class ManageBooksPanel extends JPanel {
             }
         });
 
-        // FIX 2: setOpaque(true) on cell renderer so row colors actually paint
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object val,
                     boolean sel, boolean foc, int r, int c) {
                 Component comp = super.getTableCellRendererComponent(t, val, sel, foc, r, c);
-                ((JComponent) comp).setOpaque(true); // ← KEY FIX
+                ((JComponent) comp).setOpaque(true);
                 if (!sel) {
                     String status = (String) tableModel.getValueAt(r, 9);
                     if ("Inactive".equals(status)) {
@@ -125,7 +123,6 @@ public class ManageBooksPanel extends JPanel {
         table.getColumnModel().getColumn(7).setMaxWidth(75);
         table.getColumnModel().getColumn(9).setMaxWidth(80);
 
-        // FIX 3: Make sure row height is tall enough to see text
         table.setRowHeight(28);
         table.setShowGrid(true);
         table.setGridColor(new Color(0xd4e6a0));
@@ -167,7 +164,8 @@ public class ManageBooksPanel extends JPanel {
             @Override
             protected void done() {
                 try {
-                    populate(get());
+                    List<Book> result = get();
+                    if (result != null) populate(result);
                 } catch (Exception e) {
                     e.printStackTrace();
                     JOptionPane.showMessageDialog(ManageBooksPanel.this,
@@ -184,6 +182,21 @@ public class ManageBooksPanel extends JPanel {
         String kw = tfSearch.getText().trim();
         if (kw.isEmpty()) { loadBooks(); return; }
 
+        // If input is a pure number, filter by ID directly (no DB call needed)
+        if (kw.matches("\\d+")) {
+            int targetID = Integer.parseInt(kw);
+            for (int r = tableModel.getRowCount() - 1; r >= 0; r--) {
+                if ((int) tableModel.getValueAt(r, 0) != targetID) {
+                    tableModel.removeRow(r);
+                }
+            }
+            if (tableModel.getRowCount() == 0) {
+                warn("No book found with ID: " + targetID);
+            }
+            return;
+        }
+
+        // Otherwise, normal keyword search via DAO
         setButtonsEnabled(false);
         tableModel.setRowCount(0);
 
@@ -196,7 +209,8 @@ public class ManageBooksPanel extends JPanel {
             @Override
             protected void done() {
                 try {
-                    populate(get());
+                    List<Book> result = get();
+                    if (result != null) populate(result);
                 } catch (Exception e) {
                     e.printStackTrace();
                     JOptionPane.showMessageDialog(ManageBooksPanel.this,
